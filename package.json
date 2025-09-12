@@ -43,6 +43,9 @@
     "vite": "^5.4.20"
   },
   "dependencies": {
-    "electron-squirrel-startup": "^1.0.1"
+    "@e2b/code-interpreter": "^2.0.0",
+    "electron-squirrel-startup": "^1.0.1",
+    "fastmcp": "^3.16.0",
+    "zod": "^4.1.8"
   }
 }
