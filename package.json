@@ -44,8 +44,10 @@
   },
   "dependencies": {
     "@e2b/code-interpreter": "^2.0.0",
+    "@tailwindcss/vite": "^4.1.13",
     "electron-squirrel-startup": "^1.0.1",
     "fastmcp": "^3.16.0",
+    "tailwindcss": "^4.1.13",
     "zod": "^4.1.8"
   }
 }
