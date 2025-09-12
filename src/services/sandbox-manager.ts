@@ -1,0 +1,255 @@
+import { SandboxConfig, SandboxSession, SandboxPortConfig } from '../types/sandbox';
+import { DockerManager, DockerContainer } from './docker-manager';
+
+export class SandboxManager {
+  private dockerManager = new DockerManager();
+  private configs: Map<string, SandboxConfig> = new Map();
+  private sessions: Map<string, SandboxSession> = new Map();
+  private sessionToSandbox: Map<string, string> = new Map();
+  private timeoutHandles: Map<string, NodeJS.Timeout> = new Map();
+
+  // Default port configuration for E2B sandboxes
+  private defaultPorts: SandboxPortConfig[] = [
+    { containerPort: 49999, name: 'main', description: 'Main E2B API port' },
+    { containerPort: 8888, name: 'jupyter', description: 'Jupyter Notebook' },
+    { containerPort: 3000, name: 'web', description: 'Web development server' },
+    { containerPort: 5000, name: 'api', description: 'API server' },
+    { containerPort: 8080, name: 'http', description: 'HTTP server' },
+  ];
+
+  async createSandboxForSession(sessionId: string): Promise<string> {
+    // Create a sandbox config for this session
+    const config = await this.createSandbox(
+      `Session Sandbox ${sessionId.slice(-8)}`, 
+      'e2b-sandbox:latest', // Default image
+      30, // 30 minute timeout
+      this.defaultPorts
+    );
+
+    // Start the sandbox immediately
+    await this.startSandbox(config.id);
+
+    // Create session mapping
+    const session: SandboxSession = {
+      sessionId,
+      sandboxId: config.id,
+      createdAt: new Date(),
+      lastActivity: new Date(),
+      clientInfo: `MCP Session ${sessionId}`,
+    };
+
+    this.sessions.set(sessionId, session);
+    this.sessionToSandbox.set(sessionId, config.id);
+
+    return config.id;
+  }
+
+  async getSandboxForSession(sessionId: string): Promise<DockerContainer | null> {
+    const sandboxId = this.sessionToSandbox.get(sessionId);
+    if (!sandboxId) return null;
+
+    // Update session activity
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.lastActivity = new Date();
+      this.sessions.set(sessionId, session);
+    }
+
+    // Update sandbox last used time
+    const config = this.configs.get(sandboxId);
+    if (config) {
+      config.lastUsed = new Date();
+      this.configs.set(sandboxId, config);
+    }
+
+    // Reset timeout
+    this.scheduleTimeout(sandboxId);
+
+    return this.dockerManager.getContainer(sandboxId);
+  }
+
+  getContainerForSession(sessionId: string): DockerContainer | null {
+    const sandboxId = this.sessionToSandbox.get(sessionId);
+    if (!sandboxId) return null;
+    
+    return this.dockerManager.getContainer(sandboxId);
+  }
+
+  async createSandbox(
+    name: string, 
+    dockerImage: string, 
+    timeout: number = 30,
+    ports: SandboxPortConfig[] = this.defaultPorts
+  ): Promise<SandboxConfig> {
+    const id = `sandbox_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const config: SandboxConfig = {
+      id,
+      name,
+      dockerImage,
+      status: 'stopped',
+      createdAt: new Date(),
+      lastUsed: new Date(),
+      timeout,
+      ports,
+    };
+
+    this.configs.set(id, config);
+    return config;
+  }
+
+  async startSandbox(id: string): Promise<boolean> {
+    const config = this.configs.get(id);
+    if (!config) throw new Error(`Sandbox ${id} not found`);
+
+    try {
+      config.status = 'starting';
+      this.configs.set(id, { ...config });
+
+      const container = await this.dockerManager.startContainer(config);
+      
+      config.status = 'running';
+      config.lastUsed = new Date();
+      this.configs.set(id, { ...config });
+
+      // Set up timeout for sandbox cleanup
+      this.scheduleTimeout(id);
+      
+      return true;
+    } catch (error) {
+      config.status = 'error';
+      this.configs.set(id, { ...config });
+      throw error;
+    }
+  }
+
+  async stopSandbox(id: string): Promise<boolean> {
+    const config = this.configs.get(id);
+    
+    await this.dockerManager.stopContainer(id);
+
+    if (config) {
+      config.status = 'stopped';
+      this.configs.set(id, { ...config });
+    }
+
+    // Clear timeout
+    this.clearTimeout(id);
+
+    // Clean up sessions
+    this.cleanupSandboxSessions(id);
+
+    return true;
+  }
+
+  async deleteSandbox(id: string): Promise<boolean> {
+    await this.stopSandbox(id);
+    this.configs.delete(id);
+    return true;
+  }
+
+  endSession(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    this.sessions.delete(sessionId);
+    this.sessionToSandbox.delete(sessionId);
+
+    // Check if sandbox should be stopped (no active sessions)
+    const activeSessions = Array.from(this.sessions.values())
+      .filter(s => s.sandboxId === session.sandboxId);
+
+    if (activeSessions.length === 0) {
+      // Schedule sandbox shutdown after grace period
+      setTimeout(() => {
+        const stillActive = Array.from(this.sessions.values())
+          .some(s => s.sandboxId === session.sandboxId);
+        if (!stillActive) {
+          this.stopSandbox(session.sandboxId);
+        }
+      }, 30000); // 30 second grace period
+    }
+  }
+
+  // Timeout management
+  private scheduleTimeout(sandboxId: string): void {
+    this.clearTimeout(sandboxId);
+    
+    const config = this.configs.get(sandboxId);
+    if (!config) return;
+
+    const timeoutMs = config.timeout * 60 * 1000; // Convert minutes to milliseconds
+    
+    const handle = setTimeout(() => {
+      const activeSessions = Array.from(this.sessions.values())
+        .filter(s => s.sandboxId === sandboxId);
+
+      if (activeSessions.length === 0) {
+        console.log(`Stopping sandbox ${sandboxId} due to timeout`);
+        this.stopSandbox(sandboxId);
+      } else {
+        // Reschedule if there are active sessions
+        this.scheduleTimeout(sandboxId);
+      }
+    }, timeoutMs);
+
+    this.timeoutHandles.set(sandboxId, handle);
+  }
+
+  private clearTimeout(sandboxId: string): void {
+    const handle = this.timeoutHandles.get(sandboxId);
+    if (handle) {
+      clearTimeout(handle);
+      this.timeoutHandles.delete(sandboxId);
+    }
+  }
+
+  private cleanupSandboxSessions(sandboxId: string): void {
+    const sessionsToDelete = Array.from(this.sessions.entries())
+      .filter(([_, session]) => session.sandboxId === sandboxId)
+      .map(([sessionId]) => sessionId);
+
+    sessionsToDelete.forEach(sessionId => {
+      this.sessions.delete(sessionId);
+      this.sessionToSandbox.delete(sessionId);
+    });
+  }
+
+  // Getters
+  getAllSandboxes(): SandboxConfig[] {
+    return Array.from(this.configs.values());
+  }
+
+  getSandboxConfig(id: string): SandboxConfig | undefined {
+    return this.configs.get(id);
+  }
+
+  getAllSessions(): SandboxSession[] {
+    return Array.from(this.sessions.values());
+  }
+
+  getAllContainers(): DockerContainer[] {
+    return this.dockerManager.getAllContainers();
+  }
+
+  async cleanup(): Promise<void> {
+    // Stop all containers
+    await this.dockerManager.cleanup();
+    
+    // Clear all sessions
+    this.sessions.clear();
+    this.sessionToSandbox.clear();
+    
+    // Clear all timeouts
+    this.timeoutHandles.forEach(handle => clearTimeout(handle));
+    this.timeoutHandles.clear();
+    
+    // Update all configs to stopped
+    for (const [id, config] of this.configs) {
+      config.status = 'stopped';
+      this.configs.set(id, config);
+    }
+  }
+}
+
+export const sandboxManager = new SandboxManager();

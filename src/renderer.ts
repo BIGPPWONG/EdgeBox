@@ -1,33 +1,27 @@
-/**
- * This file will automatically be loaded by vite and run in the "renderer" context.
- * To learn more about the differences between the "main" and the "renderer" context in
- * Electron, visit:
- *
- * https://electronjs.org/docs/tutorial/process-model
- *
- * By default, Node.js integration in this file is disabled. When enabling Node.js integration
- * in a renderer process, please be aware of potential security implications. You can read
- * more about security risks here:
- *
- * https://electronjs.org/docs/tutorial/security
- *
- * To enable Node.js integration in this file, open up `main.ts` and enable the `nodeIntegration`
- * flag:
- *
- * ```
- *  // Create the browser window.
- *  mainWindow = new BrowserWindow({
- *    width: 800,
- *    height: 600,
- *    webPreferences: {
- *      nodeIntegration: true
- *    }
- *  });
- * ```
- */
-
 import './index.css';
+import { createRoot } from 'react-dom/client';
+import React from 'react';
+import { App } from './components/App';
 
-console.log(
-  '👋 This message is being logged by "renderer.ts", included via Vite',
-);
+console.log('Renderer script loaded');
+
+const container = document.getElementById('root');
+if (!container) {
+  console.log('Creating root element');
+  const root = document.createElement('div');
+  root.id = 'root';
+  document.body.appendChild(root);
+}
+
+const rootElement = document.getElementById('root')!;
+console.log('Root element found:', rootElement);
+
+try {
+  const root = createRoot(rootElement);
+  console.log('React root created');
+  
+  root.render(React.createElement(App));
+  console.log('React app rendered');
+} catch (error) {
+  console.error('Error rendering React app:', error);
+}

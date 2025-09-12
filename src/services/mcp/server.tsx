@@ -2,23 +2,81 @@ import { FastMCP } from "fastmcp";
 import { z } from "zod";
 import 'dotenv/config';
 import { Sandbox } from '@e2b/code-interpreter';
+import { sandboxManager } from '../sandbox-manager';
 
 const server = new FastMCP({
     name: "E2b Sandbox MCP Server",
     version: "1.0.0",
+    authenticate: (request) => {
+        // Use session ID from header or default
+        const sessionId = request.headers["x-session-id"] || "default_session";
+
+        console.log(`MCP session: ${sessionId}`);
+
+        // Return session data that will be accessible in context.session
+        return Promise.resolve({
+            id: sessionId,
+            createdAt: new Date().toISOString(),
+            userAgent: request.headers["user-agent"] || "unknown",
+        });
+    },
 });
 
-let sandbox: Sandbox | null = null;
+// Track session to sandbox mapping
+const sessionSandboxMap = new Map<string, string>();
 
-async function ensureSandbox() {
-    if (!sandbox) {
-        sandbox = await Sandbox.create({
-            domain: "http://192.168.4.250:49999", // Default domain
+// Export function for manual sandbox cleanup
+export function cleanupSandbox(sessionId: string): boolean {
+    const sandboxId = sessionSandboxMap.get(sessionId);
+    if (sandboxId) {
+        sandboxManager.endSession(sessionId);
+        sessionSandboxMap.delete(sessionId);
+        return true;
+    }
+    return false;
+}
+
+// Export function to get all active sessions
+export function getActiveSessions(): Array<{sessionId: string, sandboxId: string}> {
+    return Array.from(sessionSandboxMap.entries()).map(([sessionId, sandboxId]) => ({
+        sessionId,
+        sandboxId
+    }));
+}
+
+async function ensureSandbox(sessionId?: string | unknown) {
+    const sessionIdStr = typeof sessionId === 'string' ? sessionId : undefined;
+
+    if (!sessionIdStr) {
+        // Fallback for backward compatibility
+        return await Sandbox.create({
+            domain: "http://localhost:49999",
             debug: true,
-            apiKey: "place-your-api-key-here", // You can set this via environment variable
         });
     }
-    return sandbox;
+
+    // Get or create sandbox for this session
+    let sandboxId = sessionSandboxMap.get(sessionIdStr);
+
+    if (!sandboxId) {
+        // Create new sandbox for this session
+        sandboxId = await sandboxManager.createSandboxForSession(sessionIdStr);
+        sessionSandboxMap.set(sessionIdStr, sandboxId);
+
+        // Note: Cleanup will be handled by timeout or manual deletion, not session close
+    }
+
+    // Get sandbox instance (with local Docker routing)
+    const container = await sandboxManager.getSandboxForSession(sessionIdStr);
+    if (!container) {
+        throw new Error(`No sandbox available for session ${sessionIdStr}`);
+    }
+
+    // Create Sandbox instance that points to the local Docker container
+    return await Sandbox.create({
+        domain: container.domain, // e.g., http://localhost:50001
+        debug: true,
+    });
 }
 
 // Code execution tools (stateless - each execution is independent)
@@ -28,8 +86,8 @@ server.addTool({
     parameters: z.object({
         code: z.string().describe("Python code to execute"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         const result = await sbx.runCode(args.code, { language: 'python' });
         return JSON.stringify({ logs: result.logs, error: result.error });
     },
@@ -41,8 +99,8 @@ server.addTool({
     parameters: z.object({
         code: z.string().describe("TypeScript/JavaScript code to execute"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         const result = await sbx.runCode(args.code, { language: 'ts' });
         return JSON.stringify({ logs: result.logs, error: result.error });
     },
@@ -54,8 +112,8 @@ server.addTool({
     parameters: z.object({
         code: z.string().describe("R code to execute"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         const result = await sbx.runCode(args.code, { language: 'r' });
         return JSON.stringify({ logs: result.logs, error: result.error });
     },
@@ -67,8 +125,8 @@ server.addTool({
     parameters: z.object({
         code: z.string().describe("Java code to execute"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         const result = await sbx.runCode(args.code, { language: 'java' });
         return JSON.stringify({ logs: result.logs, error: result.error });
     },
@@ -80,8 +138,8 @@ server.addTool({
     parameters: z.object({
         code: z.string().describe("Bash code to execute"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         const result = await sbx.runCode(args.code, { language: 'bash' });
         return JSON.stringify({ logs: result.logs, error: result.error });
     },
@@ -94,8 +152,8 @@ server.addTool({
     parameters: z.object({
         command: z.string().describe("Command to execute"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         const result = await sbx.commands.run(args.command);
         return JSON.stringify({
             stdout: result.stdout,
@@ -112,11 +170,11 @@ server.addTool({
         command: z.string().describe("Command to execute in background"),
         timeout: z.number().optional().describe("Timeout in milliseconds to wait for output"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         let output = '';
         let error = '';
-        
+
         const bgCmd = await sbx.commands.run(args.command, {
             background: true,
             onStdout: (data) => {
@@ -130,7 +188,7 @@ server.addTool({
         // Wait for some output or timeout
         const timeout = args.timeout || 2000;
         await new Promise(resolve => setTimeout(resolve, timeout));
-        
+
         return JSON.stringify({
             pid: bgCmd.pid,
             stdout: output,
@@ -147,8 +205,8 @@ server.addTool({
     parameters: z.object({
         path: z.string().describe("Directory path to list"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         const files = await sbx.files.list(args.path);
         return JSON.stringify(files);
     },
@@ -160,8 +218,8 @@ server.addTool({
     parameters: z.object({
         path: z.string().describe("File path to read"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         const content = await sbx.files.read(args.path);
         return content;
     },
@@ -174,8 +232,8 @@ server.addTool({
         path: z.string().describe("File path to write to"),
         content: z.string().describe("Content to write"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         await sbx.files.write(args.path, args.content);
         return "File written successfully";
     },
@@ -187,8 +245,8 @@ server.addTool({
     parameters: z.object({
         path: z.string().describe("File path to get info for"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         const fileInfo = await sbx.files.getInfo(args.path);
         return JSON.stringify(fileInfo);
     },
@@ -201,20 +259,20 @@ server.addTool({
         path: z.string().describe("Directory path to watch"),
         timeout: z.number().optional().describe("Timeout in milliseconds (default 5000)"),
     }),
-    execute: async (args) => {
-        const sbx = await ensureSandbox();
+    execute: async (args, { session }) => {
+        const sbx = await ensureSandbox(session?.id);
         const events: any[] = [];
-        
+
         const watchHandle = await sbx.files.watchDir(args.path, (event) => {
             events.push(event);
         });
-        
+
         // Wait for events or timeout
         const timeout = args.timeout || 5000;
         await new Promise(resolve => setTimeout(resolve, timeout));
-        
+
         watchHandle.stop();
-        
+
         return JSON.stringify({
             events: events,
             message: `Watched directory ${args.path} for ${timeout}ms`
