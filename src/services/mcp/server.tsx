@@ -2,14 +2,32 @@ import { FastMCP } from "fastmcp";
 import { z } from "zod";
 import 'dotenv/config';
 import { Sandbox } from '@e2b/code-interpreter';
-import { sandboxManager } from '../sandbox-manager';
+import { TcpForwarder } from '../tcp-forwarder';
+import { DockerManager } from '../docker-manager';
+import { SandboxManager } from '../sandbox-manager';
+
+// Create a global sandbox manager instance for main process
+const sandboxManagerForMain = new SandboxManager(new DockerManager());
+
+// Function to get the current global sandbox manager
+function getSandboxManager(): typeof sandboxManagerForMain | undefined {
+    return sandboxManagerForMain;
+}
+
+// Create a global TCP forwarder instance for main process      
+const tcpForwarder = new TcpForwarder(getSandboxManager()!);
 
 const server = new FastMCP({
     name: "E2b Sandbox MCP Server",
     version: "1.0.0",
     authenticate: (request) => {
-        // Use session ID from header or default
-        const sessionId = request.headers["x-session-id"] || "default_session";
+        // Use session ID from header or default, ensure it's a string
+        const headerSessionId = request.headers["x-session-id"];
+        const sessionId = typeof headerSessionId === 'string'
+            ? headerSessionId
+            : Array.isArray(headerSessionId)
+                ? headerSessionId[0]
+                : "default_session";
 
         console.log(`MCP session: ${sessionId}`);
 
@@ -29,7 +47,10 @@ const sessionSandboxMap = new Map<string, string>();
 export function cleanupSandbox(sessionId: string): boolean {
     const sandboxId = sessionSandboxMap.get(sessionId);
     if (sandboxId) {
-        sandboxManager.endSession(sessionId);
+        const manager = getSandboxManager();
+        if (manager) {
+            manager.endSession(sessionId);
+        }
         sessionSandboxMap.delete(sessionId);
         return true;
     }
@@ -37,7 +58,7 @@ export function cleanupSandbox(sessionId: string): boolean {
 }
 
 // Export function to get all active sessions
-export function getActiveSessions(): Array<{sessionId: string, sandboxId: string}> {
+export function getActiveSessions(): Array<{ sessionId: string, sandboxId: string }> {
     return Array.from(sessionSandboxMap.entries()).map(([sessionId, sandboxId]) => ({
         sessionId,
         sandboxId
@@ -48,11 +69,7 @@ async function ensureSandbox(sessionId?: string | unknown) {
     const sessionIdStr = typeof sessionId === 'string' ? sessionId : undefined;
 
     if (!sessionIdStr) {
-        // Fallback for backward compatibility
-        return await Sandbox.create({
-            domain: "http://localhost:49999",
-            debug: true,
-        });
+        throw new Error('Session ID is required to ensure sandbox');
     }
 
     // Get or create sandbox for this session
@@ -60,22 +77,41 @@ async function ensureSandbox(sessionId?: string | unknown) {
 
     if (!sandboxId) {
         // Create new sandbox for this session
-        sandboxId = await sandboxManager.createSandboxForSession(sessionIdStr);
-        sessionSandboxMap.set(sessionIdStr, sandboxId);
+        const manager = getSandboxManager();
+        if (!manager) {
+            throw new Error('Sandbox manager not available');
+        }
+        sandboxId = await manager.createSandboxForSession(sessionIdStr!);
+        sessionSandboxMap.set(sessionIdStr!, sandboxId);
 
         // Note: Cleanup will be handled by timeout or manual deletion, not session close
     }
 
     // Get sandbox instance (with local Docker routing)
-    const container = await sandboxManager.getSandboxForSession(sessionIdStr);
+    const manager = getSandboxManager();
+    if (!manager) {
+        throw new Error('Sandbox manager not available');
+    }
+    const container = await manager.getSandboxForSession(sessionIdStr);
     if (!container) {
         throw new Error(`No sandbox available for session ${sessionIdStr}`);
     }
 
-    // Create Sandbox instance that points to the local Docker container
+    // Ensure TCP forwarders are running (only start if not already running)
+    if (!tcpForwarder.areForwardersRunning()) {
+        console.log('Starting TCP forwarders for session:', sessionIdStr);
+        await tcpForwarder.startAllForwarders();
+    }
+
+    // Create Sandbox instance using session-specific domain for TCP forwarding
+    const sessionDomain = tcpForwarder.getSessionDomain(sessionIdStr);
+    console.log(`Session ${sessionIdStr} using domain: ${sessionDomain}`);
     return await Sandbox.create({
-        domain: container.domain, // e.g., http://localhost:50001
+        domain: sessionDomain, // 用于 code interpreter 分流
         debug: true,
+        headers: {
+            'x-session-id': sessionIdStr, // 用于envd 分流
+        },
     });
 }
 
@@ -88,8 +124,16 @@ server.addTool({
     }),
     execute: async (args, { session }) => {
         const sbx = await ensureSandbox(session?.id);
-        const result = await sbx.runCode(args.code, { language: 'python' });
-        return JSON.stringify({ logs: result.logs, error: result.error });
+        sbx.createCodeContext
+        const result = await sbx.runCode(
+            args.code,
+            { language: 'python', envs: { 'x-session-id': session?.id || 'default_session' } }
+        );
+        return JSON.stringify({
+            logs: result.logs,
+            error: result.error,
+            exit_code: result.error ? 1 : 0
+        });
     },
 });
 
@@ -101,8 +145,12 @@ server.addTool({
     }),
     execute: async (args, { session }) => {
         const sbx = await ensureSandbox(session?.id);
-        const result = await sbx.runCode(args.code, { language: 'ts' });
-        return JSON.stringify({ logs: result.logs, error: result.error });
+        const result = await sbx.runCode(args.code, { language: 'ts', envs: { 'x-session-id': session?.id || 'default_session' } });
+        return JSON.stringify({
+            logs: result.logs,
+            error: result.error,
+            exit_code: result.error ? 1 : 0
+        });
     },
 });
 
@@ -114,8 +162,12 @@ server.addTool({
     }),
     execute: async (args, { session }) => {
         const sbx = await ensureSandbox(session?.id);
-        const result = await sbx.runCode(args.code, { language: 'r' });
-        return JSON.stringify({ logs: result.logs, error: result.error });
+        const result = await sbx.runCode(args.code, { language: 'r', envs: { 'x-session-id': session?.id || 'default_session' } });
+        return JSON.stringify({
+            logs: result.logs,
+            error: result.error,
+            exit_code: result.error ? 1 : 0
+        });
     },
 });
 
@@ -127,8 +179,12 @@ server.addTool({
     }),
     execute: async (args, { session }) => {
         const sbx = await ensureSandbox(session?.id);
-        const result = await sbx.runCode(args.code, { language: 'java' });
-        return JSON.stringify({ logs: result.logs, error: result.error });
+        const result = await sbx.runCode(args.code, { language: 'java', envs: { 'x-session-id': session?.id || 'default_session' } });
+        return JSON.stringify({
+            logs: result.logs,
+            error: result.error,
+            exit_code: result.error ? 1 : 0
+        });
     },
 });
 
@@ -140,8 +196,12 @@ server.addTool({
     }),
     execute: async (args, { session }) => {
         const sbx = await ensureSandbox(session?.id);
-        const result = await sbx.runCode(args.code, { language: 'bash' });
-        return JSON.stringify({ logs: result.logs, error: result.error });
+        const result = await sbx.runCode(args.code, { language: 'bash', envs: { 'x-session-id': session?.id || 'default_session' } });
+        return JSON.stringify({
+            logs: result.logs,
+            error: result.error,
+            exit_code: result.error ? 1 : 0
+        });
     },
 });
 
@@ -280,12 +340,6 @@ server.addTool({
     },
 });
 
-// server.start({
-//     transportType: "stdio",
-// });
-server.start({
-    transportType: "httpStream",
-    httpStream: {
-        port: 8888,
-    },
-});
+// Export the server instance without auto-starting
+export default server;
+

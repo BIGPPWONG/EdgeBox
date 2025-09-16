@@ -1,6 +1,8 @@
 import React from 'react';
 import { DockerHealthCheck } from './DockerHealthCheck';
 import { MinimalSandboxManager } from './MinimalSandboxManager';
+import { MCPServerManager } from './MCPServerManager';
+import { TcpForwarderManager } from './TcpForwarderManager';
 
 export const App: React.FC = () => {
   return (
@@ -8,6 +10,8 @@ export const App: React.FC = () => {
       <h1 style={{ color: '#111827', marginBottom: '24px' }}>E2B Sandbox Manager</h1>
       <DockerHealthCheck />
       <MinimalSandboxManager />
+      <MCPServerManager />
+      {/* <TcpForwarderManager /> */}
     </div>
   );
 };

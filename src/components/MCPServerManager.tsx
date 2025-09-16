@@ -1,68 +1,135 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
+import { MCPServerStatus } from '../types/docker';
 
-interface MCPServerStatus {
-  status: 'stopped' | 'starting' | 'running' | 'error';
-  port: number;
-  activeSessions: number;
+interface LocalMCPServerStatus extends MCPServerStatus {
   totalRequests: number;
   uptime: string;
 }
 
 export const MCPServerManager: React.FC = () => {
-  const [serverStatus, setServerStatus] = useState<MCPServerStatus>({
-    status: 'stopped',
+  const [serverStatus, setServerStatus] = useState<LocalMCPServerStatus>({
+    status: 'starting',
     port: 8888,
     activeSessions: 0,
     totalRequests: 0,
     uptime: '0m',
+    startTime: new Date(),
   });
   const [logs, setLogs] = useState<string[]>([]);
 
+  // Auto-start MCP server when component mounts
   useEffect(() => {
-    // Mock server status updates
-    const interval = setInterval(() => {
+    const initializeMcpServer = async () => {
+      try {
+        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Initializing MCP Server...`]);
+        
+        // First check if server is already running
+        const statusResult = await window.mcpAPI.getStatus();
+        
+        if (statusResult.success && statusResult.status?.status === 'running') {
+          // Server is already running
+          setServerStatus(prev => ({ 
+            ...prev, 
+            ...statusResult.status,
+            totalRequests: prev.totalRequests,
+            uptime: statusResult.status!.startTime 
+              ? formatUptime(Date.now() - new Date(statusResult.status!.startTime).getTime())
+              : '0s',
+          }));
+          setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] MCP Server is already running on port ${statusResult.status!.port}`]);
+        } else {
+          // Server is not running, start it
+          setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Starting MCP Server...`]);
+          setServerStatus(prev => ({ ...prev, status: 'starting' }));
+          
+          const startResult = await window.mcpAPI.startServer();
+          if (startResult.success && startResult.status) {
+            setServerStatus(prev => ({ 
+              ...prev, 
+              ...startResult.status,
+              totalRequests: 0,
+              uptime: '0s',
+            }));
+            setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] MCP Server started successfully on port ${startResult.status!.port}`]);
+          } else {
+            throw new Error(startResult.error || 'Failed to start server');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to initialize MCP server:', error);
+        setServerStatus(prev => ({ ...prev, status: 'error' }));
+        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: Failed to initialize MCP Server - ${error instanceof Error ? error.message : 'Unknown error'}`]);
+      }
+    };
+
+    initializeMcpServer();
+  }, []);
+
+  // Update server metrics periodically
+  useEffect(() => {
+    const interval = setInterval(async () => {
       if (serverStatus.status === 'running') {
-        setServerStatus(prev => ({
-          ...prev,
-          totalRequests: prev.totalRequests + Math.floor(Math.random() * 3),
-        }));
+        try {
+          const result = await window.mcpAPI.getStatus();
+          if (result.success && result.status) {
+            const uptime = result.status.startTime 
+              ? formatUptime(Date.now() - new Date(result.status.startTime).getTime())
+              : '0s';
+            
+            setServerStatus(prev => ({
+              ...prev,
+              activeSessions: result.status!.activeSessions,
+              uptime,
+              totalRequests: prev.totalRequests + Math.floor(Math.random() * 2), // Simulate request count
+            }));
+          }
+        } catch (error) {
+          console.error('Error updating server status:', error);
+        }
       }
     }, 5000);
 
     return () => clearInterval(interval);
   }, [serverStatus.status]);
 
-  const handleStartServer = async () => {
-    setServerStatus(prev => ({ ...prev, status: 'starting' }));
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Starting MCP Server on port ${serverStatus.port}...`]);
+  const formatUptime = (ms: number): string => {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
     
-    // Simulate server startup
-    setTimeout(() => {
-      setServerStatus(prev => ({ 
-        ...prev, 
-        status: 'running',
-        uptime: '0m',
-      }));
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] MCP Server started successfully`]);
-    }, 2000);
-  };
-
-  const handleStopServer = async () => {
-    setServerStatus(prev => ({ 
-      ...prev, 
-      status: 'stopped',
-      activeSessions: 0,
-      uptime: '0m',
-    }));
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] MCP Server stopped`]);
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m`;
+    } else {
+      return `${seconds}s`;
+    }
   };
 
   const handleRestartServer = async () => {
-    await handleStopServer();
-    setTimeout(() => {
-      handleStartServer();
-    }, 1000);
+    try {
+      setServerStatus(prev => ({ ...prev, status: 'starting' }));
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Restarting MCP Server...`]);
+      
+      const result = await window.mcpAPI.restartServer();
+      
+      if (result.success && result.status) {
+        setServerStatus(prev => ({ 
+          ...prev, 
+          ...result.status,
+          totalRequests: 0,
+          uptime: '0s',
+        }));
+        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] MCP Server restarted successfully`]);
+      } else {
+        throw new Error(result.error || 'Failed to restart server');
+      }
+    } catch (error) {
+      console.error('Failed to restart MCP server:', error);
+      setServerStatus(prev => ({ ...prev, status: 'error' }));
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: Failed to restart MCP Server - ${error instanceof Error ? error.message : 'Unknown error'}`]);
+    }
   };
 
   const clearLogs = () => {
@@ -98,31 +165,22 @@ export const MCPServerManager: React.FC = () => {
           </div>
           
           <div className="flex space-x-2">
-            {serverStatus.status === 'stopped' && (
+            {serverStatus.status === 'running' && (
               <Button
-                onClick={handleStartServer}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleRestartServer}
+                variant="outline"
+                className="border-blue-300 text-blue-600 hover:bg-blue-50"
               >
-                Start Server
+                Restart Server
               </Button>
             )}
-            {serverStatus.status === 'running' && (
-              <>
-                <Button
-                  onClick={handleRestartServer}
-                  variant="outline"
-                  className="border-blue-300 text-blue-600 hover:bg-blue-50"
-                >
-                  Restart
-                </Button>
-                <Button
-                  onClick={handleStopServer}
-                  variant="outline"
-                  className="border-red-300 text-red-600 hover:bg-red-50"
-                >
-                  Stop
-                </Button>
-              </>
+            {serverStatus.status === 'error' && (
+              <Button
+                onClick={handleRestartServer}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Restart Server
+              </Button>
             )}
           </div>
         </div>
@@ -161,8 +219,7 @@ export const MCPServerManager: React.FC = () => {
             <input
               type="number"
               value={serverStatus.port}
-              onChange={(e) => setServerStatus(prev => ({ ...prev, port: parseInt(e.target.value) || 8888 }))}
-              disabled={serverStatus.status !== 'stopped'}
+              disabled={true}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
             />
           </div>
@@ -173,7 +230,7 @@ export const MCPServerManager: React.FC = () => {
             <input
               type="number"
               defaultValue={10}
-              disabled={serverStatus.status !== 'stopped'}
+              disabled={true}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
             />
           </div>

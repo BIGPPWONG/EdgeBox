@@ -58,6 +58,7 @@
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
+    "dotenv": "^17.2.2",
     "electron-squirrel-startup": "^1.0.1",
     "http-proxy": "^1.18.1"
   }

@@ -1,26 +1,58 @@
 import { SandboxConfig, SandboxSession, SandboxPortConfig } from '../types/sandbox';
-import { DockerManager, DockerContainer } from './docker-manager';
+import { DockerContainer } from '../types/docker';
+import { DEFAULT_CONTAINER_PORTS, PORT_DESCRIPTIONS } from '../constants/ports';
+import { IPCDockerManager } from './ipc-docker-manager';
+
+
+// Interface for Docker operations
+interface IDockerManager {
+  startContainer(config: SandboxConfig): Promise<DockerContainer>;
+  stopContainer(containerId: string): Promise<boolean>;
+  getContainer(containerId: string): DockerContainer | null;
+  getAllContainers(): DockerContainer[];
+  refreshContainers(): Promise<void>;
+  cleanup(): Promise<void>;
+}
 
 export class SandboxManager {
-  private dockerManager = new DockerManager();
+  private dockerManager: IDockerManager;
   private configs: Map<string, SandboxConfig> = new Map();
   private sessions: Map<string, SandboxSession> = new Map();
   private sessionToSandbox: Map<string, string> = new Map();
   private timeoutHandles: Map<string, NodeJS.Timeout> = new Map();
 
+  constructor(dockerManager?: IDockerManager) {
+    // Use provided docker manager or create default one
+    console.log('Initializing SandboxManager with:', dockerManager ? 'custom DockerManager' : 'default DockerManager');
+    this.dockerManager = dockerManager || this.createDefaultDockerManager();
+  }
+
+  private createDefaultDockerManager(): IDockerManager {
+    // This will only work in renderer process
+    return new IPCDockerManager();
+  }
+
   // Default port configuration for E2B sandboxes
-  private defaultPorts: SandboxPortConfig[] = [
-    { containerPort: 49999, name: 'main', description: 'Main E2B API port' },
-    { containerPort: 8888, name: 'jupyter', description: 'Jupyter Notebook' },
-    { containerPort: 3000, name: 'web', description: 'Web development server' },
-    { containerPort: 5000, name: 'api', description: 'API server' },
-    { containerPort: 8080, name: 'http', description: 'HTTP server' },
-  ];
+  private defaultPorts: SandboxPortConfig[] = DEFAULT_CONTAINER_PORTS.map(port => {
+    const portNames: Record<number, string> = {
+      49999: 'main',
+      8888: 'jupyter',
+      3000: 'web',
+      5000: 'api',
+      8080: 'http'
+    };
+
+    return {
+      containerPort: port,
+      name: portNames[port] || 'unknown',
+      description: PORT_DESCRIPTIONS[port as keyof typeof PORT_DESCRIPTIONS] || 'Unknown port'
+    };
+  });
 
   async createSandboxForSession(sessionId: string): Promise<string> {
     // Create a sandbox config for this session
     const config = await this.createSandbox(
-      `Session Sandbox ${sessionId.slice(-8)}`, 
+      `Session_Sandbox_${sessionId.slice(-8)}`,
       'e2b-sandbox:latest', // Default image
       30, // 30 minute timeout
       this.defaultPorts
@@ -71,18 +103,18 @@ export class SandboxManager {
   getContainerForSession(sessionId: string): DockerContainer | null {
     const sandboxId = this.sessionToSandbox.get(sessionId);
     if (!sandboxId) return null;
-    
+
     return this.dockerManager.getContainer(sandboxId);
   }
 
   async createSandbox(
-    name: string, 
-    dockerImage: string, 
+    name: string,
+    dockerImage: string,
     timeout: number = 30,
     ports: SandboxPortConfig[] = this.defaultPorts
   ): Promise<SandboxConfig> {
-    const id = `sandbox_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+    const id = `container_${name}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+
     const config: SandboxConfig = {
       id,
       name,
@@ -106,15 +138,15 @@ export class SandboxManager {
       config.status = 'starting';
       this.configs.set(id, { ...config });
 
-      const container = await this.dockerManager.startContainer(config);
-      
+      await this.dockerManager.startContainer(config);
+
       config.status = 'running';
       config.lastUsed = new Date();
       this.configs.set(id, { ...config });
 
       // Set up timeout for sandbox cleanup
       this.scheduleTimeout(id);
-      
+
       return true;
     } catch (error) {
       config.status = 'error';
@@ -125,7 +157,7 @@ export class SandboxManager {
 
   async stopSandbox(id: string): Promise<boolean> {
     const config = this.configs.get(id);
-    
+
     await this.dockerManager.stopContainer(id);
 
     if (config) {
@@ -167,19 +199,19 @@ export class SandboxManager {
         if (!stillActive) {
           this.stopSandbox(session.sandboxId);
         }
-      }, 30000); // 30 second grace period
+      }, 3000); // 3 second grace period
     }
   }
 
   // Timeout management
   private scheduleTimeout(sandboxId: string): void {
     this.clearTimeout(sandboxId);
-    
+
     const config = this.configs.get(sandboxId);
     if (!config) return;
 
     const timeoutMs = config.timeout * 60 * 1000; // Convert minutes to milliseconds
-    
+
     const handle = setTimeout(() => {
       const activeSessions = Array.from(this.sessions.values())
         .filter(s => s.sandboxId === sandboxId);
@@ -235,15 +267,15 @@ export class SandboxManager {
   async cleanup(): Promise<void> {
     // Stop all containers
     await this.dockerManager.cleanup();
-    
+
     // Clear all sessions
     this.sessions.clear();
     this.sessionToSandbox.clear();
-    
+
     // Clear all timeouts
     this.timeoutHandles.forEach(handle => clearTimeout(handle));
     this.timeoutHandles.clear();
-    
+
     // Update all configs to stopped
     for (const [id, config] of this.configs) {
       config.status = 'stopped';
@@ -252,4 +284,6 @@ export class SandboxManager {
   }
 }
 
-export const sandboxManager = new SandboxManager();
+// Export a default instance for renderer process use
+export const sandboxManagerForRender = new SandboxManager();
+// export const sandboxManagerForMain = new SandboxManager(new DockerManager());

@@ -7,7 +7,16 @@ export interface DockerContainer {
   domain: string;
 }
 
-// Global dockerAPI interface
+// MCP Server status interface
+export interface MCPServerStatus {
+  status: 'starting' | 'running' | 'error' | 'stopped';
+  port: number;
+  activeSessions: number;
+  startTime?: Date;
+  error?: string;
+}
+
+// Global API interfaces
 declare global {
   interface Window {
     dockerAPI: {
@@ -15,6 +24,17 @@ declare global {
       startContainer: (name: string, image: string) => Promise<{ success: boolean; container?: DockerContainer; error?: string }>;
       stopContainer: (name: string) => Promise<{ success: boolean; error?: string }>;
       getContainers: () => Promise<{ success: boolean; containers?: DockerContainer[]; error?: string }>;
+    };
+    mcpAPI: {
+      getStatus: () => Promise<{ success: boolean; status?: MCPServerStatus; error?: string }>;
+      startServer: () => Promise<{ success: boolean; status?: MCPServerStatus; error?: string }>;
+      restartServer: () => Promise<{ success: boolean; status?: MCPServerStatus; error?: string }>;
+    };
+    tcpAPI: {
+      startForwarders: () => Promise<{ success: boolean; error?: string }>;
+      stopForwarders: () => Promise<{ success: boolean; error?: string }>;
+      getStatus: () => Promise<{ success: boolean; status?: { port: number; isRunning: boolean }[]; areRunning?: boolean; error?: string }>;
+      getSessionDomain: (sessionId: string, port?: number) => Promise<{ success: boolean; domain?: string; error?: string }>;
     };
   }
 }
