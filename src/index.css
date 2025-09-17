@@ -8,6 +8,8 @@
 } */
 
 @import "tailwindcss";
+@import "./global.css";
+
 
 /* Electron 拖拽区域样式 */
 .drag-region {
