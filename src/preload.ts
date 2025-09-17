@@ -45,5 +45,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
 });
 
+// Expose Settings API to renderer process
+contextBridge.exposeInMainWorld('settingsAPI', {
+  getSettings: () => ipcRenderer.invoke('settings-get'),
+  updateSettings: (updates: any) => ipcRenderer.invoke('settings-update', updates),
+  resetToDefaults: () => ipcRenderer.invoke('settings-reset'),
+});
+
 // Expose global debug mode setting
 contextBridge.exposeInMainWorld('DEBUG_MODE_ENABLED', DEBUG_MODE_ENABLED);

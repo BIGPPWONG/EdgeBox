@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Dashboard } from './Dashboard';
 import { MinimalSandboxManager } from './MinimalSandboxManager';
 import { TcpForwarderManager } from './TcpForwarderManager';
+import { Settings as SettingsComponent } from './Settings';
 import { Badge } from './ui/badge';
 import {
   Dialog,
@@ -82,10 +83,23 @@ export const App: React.FC = () => {
 
         {/* 底部设置区域 */}
         <div className="p-4 border-t border-slate-700">
-          <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200">
-            <Settings size={18} />
-            <span>Settings</span>
-          </button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200">
+                <Settings size={18} />
+                <span>Settings</span>
+              </button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              {/* <DialogHeader>
+                <DialogTitle>Application Settings</DialogTitle>
+                <DialogDescription>
+                  Configure shared variables and application preferences.
+                </DialogDescription>
+              </DialogHeader> */}
+              <SettingsComponent />
+            </DialogContent>
+          </Dialog>
           <Dialog>
             <DialogTrigger asChild>
               <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200 mt-2">

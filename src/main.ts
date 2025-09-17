@@ -5,7 +5,8 @@ import { spawn, ChildProcess } from 'child_process';
 import { DEFAULT_CONTAINER_PORTS } from './constants/ports';
 import { SandboxManager } from './services/sandbox-manager';
 import { DockerManager } from './services/docker-manager';
-import mcpServer, { getActiveSessions, sandboxManagerForMain, tcpForwarder } from './services/mcp/server';
+import { SettingsManager } from './services/settings-manager';
+import mcpServer, { getActiveSessions, sandboxManagerForMain, tcpForwarder, setSettingsManager } from './services/mcp/server';
 // Initialize global sandbox manager as early as possible
 // We'll set up the actual instance after creating dockerManager
 
@@ -108,6 +109,13 @@ app.on('activate', () => {
 const dockerManager = new DockerManager();
 console.log('Creating SandboxManager with DockerManager');
 
+// Create SettingsManager instance for main process
+const settingsManager = new SettingsManager();
+
+// Inject settings manager into MCP server and sandbox manager
+setSettingsManager(settingsManager);
+sandboxManagerForMain.setSettingsManager(settingsManager);
+
 // IPC handlers
 ipcMain.handle('ping-docker', async () => {
   try {
@@ -178,22 +186,26 @@ class MCPServerManager {
       this.status.status = 'starting';
       console.log('Starting MCP Server...');
 
+      // Get port from settings
+      const settings = settingsManager.getSettings();
+      const mcpPort = settings.mcpPort || 8888;
+
       // Start the MCP server with configuration
       await mcpServer.start({
         transportType: "httpStream",
         httpStream: {
-          port: 8888,
+          port: mcpPort,
         },
       });
 
       this.status = {
         status: 'running',
-        port: 8888,
+        port: mcpPort,
         activeSessions: 0,
         startTime: new Date(),
       };
 
-      console.log('MCP Server started successfully on port 8888');
+      console.log(`MCP Server started successfully on port ${mcpPort}`);
       return this.status;
     } catch (error) {
       console.error('Failed to start MCP server:', error);
@@ -260,22 +272,26 @@ class MCPServerManager {
         console.warn('Failed to stop current server, continuing anyway:', stopError);
       }
 
+      // Get port from settings
+      const settings = settingsManager.getSettings();
+      const mcpPort = settings.mcpPort || 8888;
+
       // Start the server with fresh configuration
       await mcpServer.start({
         transportType: "httpStream",
         httpStream: {
-          port: 8888,
+          port: mcpPort,
         },
       });
 
       this.status = {
         status: 'running',
-        port: 8888,
+        port: mcpPort,
         activeSessions: 0,
         startTime: new Date(),
       };
 
-      console.log('MCP Server restarted successfully on port 8888');
+      console.log(`MCP Server restarted successfully on port ${mcpPort}`);
       return this.status;
     } catch (error) {
       console.error('Failed to restart MCP server:', error);
@@ -468,4 +484,32 @@ ipcMain.handle('window-close', () => {
 ipcMain.handle('window-is-maximized', () => {
   const win = BrowserWindow.getFocusedWindow();
   return win ? win.isMaximized() : false;
+});
+
+// Settings IPC handlers
+ipcMain.handle('settings-get', async () => {
+  try {
+    const settings = settingsManager.getSettings();
+    return { success: true, settings };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('settings-update', async (_, updates: any) => {
+  try {
+    settingsManager.updateSettings(updates);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('settings-reset', async () => {
+  try {
+    settingsManager.resetToDefaults();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
 });

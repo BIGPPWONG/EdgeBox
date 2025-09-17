@@ -6,6 +6,13 @@ import { TcpForwarder } from '../tcp-forwarder';
 import { DockerManager } from '../docker-manager';
 import { SandboxManager } from '../sandbox-manager';
 
+// Settings manager will be injected from main process
+let settingsManager: any = null;
+
+export function setSettingsManager(manager: any) {
+  settingsManager = manager;
+}
+
 // Create a global sandbox manager instance for main process
 const sandboxManagerForMain = new SandboxManager(new DockerManager());
 

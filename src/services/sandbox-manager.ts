@@ -20,11 +20,22 @@ export class SandboxManager {
   private sessions: Map<string, SandboxSession> = new Map();
   private sessionToSandbox: Map<string, string> = new Map();
   private timeoutHandles: Map<string, NodeJS.Timeout> = new Map();
+  private settingsManager: any = null;
 
-  constructor(dockerManager?: IDockerManager) {
+  constructor(dockerManager?: IDockerManager, settingsManager?: any) {
     // Use provided docker manager or create default one
     console.log('Initializing SandboxManager with:', dockerManager ? 'custom DockerManager' : 'default DockerManager');
     this.dockerManager = dockerManager || this.createDefaultDockerManager();
+    this.settingsManager = settingsManager;
+  }
+
+  setSettingsManager(settingsManager: any): void {
+    this.settingsManager = settingsManager;
+  }
+
+  private getDefaultImage(): string {
+    const settings = this.settingsManager?.getSettings();
+    return settings?.defaultDockerImage || 'e2b-sandbox:latest';
   }
 
   private createDefaultDockerManager(): IDockerManager {
@@ -50,10 +61,13 @@ export class SandboxManager {
   });
 
   async createSandboxForSession(sessionId: string): Promise<string> {
+    // Get default image from settings if available
+    const defaultImage = this.getDefaultImage();
+
     // Create a sandbox config for this session
     const config = await this.createSandbox(
       `Session_Sandbox_${sessionId.slice(-8)}`,
-      'e2b-sandbox:latest', // Default image
+      defaultImage,
       30, // 30 minute timeout
       this.defaultPorts
     );
