@@ -8,3 +8,13 @@
 } */
 
 @import "tailwindcss";
+
+/* Electron 拖拽区域样式 */
+.drag-region {
+  app-region: drag;
+  user-select: none;
+}
+
+.no-drag {
+  app-region: no-drag;
+}

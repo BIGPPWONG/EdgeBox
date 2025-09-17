@@ -19,6 +19,10 @@ const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    title: 'E2B Desktop',
+    icon: process.platform === 'darwin' ? undefined : path.join(__dirname, '../assets/icon.png'),
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    vibrancy: process.platform === 'darwin' ? 'under-window' : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -430,4 +434,38 @@ ipcMain.handle('tcp-forwarder-stop', async () => {
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+});
+
+// Window control IPC handlers
+ipcMain.handle('window-minimize', () => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (win) {
+    win.minimize();
+  }
+});
+
+ipcMain.handle('window-maximize', () => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (win) {
+    win.maximize();
+  }
+});
+
+ipcMain.handle('window-unmaximize', () => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (win) {
+    win.unmaximize();
+  }
+});
+
+ipcMain.handle('window-close', () => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (win) {
+    win.close();
+  }
+});
+
+ipcMain.handle('window-is-maximized', () => {
+  const win = BrowserWindow.getFocusedWindow();
+  return win ? win.isMaximized() : false;
 });

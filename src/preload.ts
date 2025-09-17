@@ -36,5 +36,14 @@ contextBridge.exposeInMainWorld('tcpForwarderAPI', {
   stop: () => ipcRenderer.invoke('tcp-forwarder-stop'),
 });
 
+// Expose Electron API for window controls
+contextBridge.exposeInMainWorld('electronAPI', {
+  minimize: () => ipcRenderer.invoke('window-minimize'),
+  maximize: () => ipcRenderer.invoke('window-maximize'),
+  unmaximize: () => ipcRenderer.invoke('window-unmaximize'),
+  close: () => ipcRenderer.invoke('window-close'),
+  isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+});
+
 // Expose global debug mode setting
 contextBridge.exposeInMainWorld('DEBUG_MODE_ENABLED', DEBUG_MODE_ENABLED);

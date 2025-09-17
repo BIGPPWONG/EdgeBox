@@ -27,7 +27,7 @@ export const App: React.FC = () => {
   return (
     <div className="h-screen flex bg-slate-100">
       {/* 左侧导航菜单 */}
-      <div className="w-64 bg-slate-800 text-white flex flex-col">
+      <div className="drag-region pt-6 w-64 bg-slate-800 text-white flex flex-col">
         {/* 顶部用户信息 */}
         <div className="p-6">
           <div className="flex items-center space-x-3 mb-6">
@@ -58,7 +58,7 @@ export const App: React.FC = () => {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={`
-                w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-left transition-all duration-200
+                no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-left transition-all duration-200
                 ${activeTab === item.id
                   ? 'bg-white text-slate-800 shadow-lg'
                   : 'text-slate-300 hover:bg-slate-700 hover:text-white'
@@ -73,11 +73,11 @@ export const App: React.FC = () => {
 
         {/* 底部设置区域 */}
         <div className="p-4 border-t border-slate-700">
-          <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200">
+          <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200">
             <span>⚙️</span>
             <span>Settings</span>
           </button>
-          <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200 mt-2">
+          <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200 mt-2">
             <span>🚪</span>
             <span>Log Out</span>
           </button>
@@ -87,7 +87,7 @@ export const App: React.FC = () => {
       {/* 右侧主要内容区域 */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* 顶部标题栏 */}
-        <div className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm">
+        <div className="drag-region h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
               {activeTab === 'dashboard' ? 'General Information' :
