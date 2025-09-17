@@ -5,7 +5,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { DEFAULT_CONTAINER_PORTS } from './constants/ports';
 import { SandboxManager } from './services/sandbox-manager';
 import { DockerManager } from './services/docker-manager';
-import mcpServer, { getActiveSessions } from './services/mcp/server';
+import mcpServer, { getActiveSessions, sandboxManagerForMain, tcpForwarder } from './services/mcp/server';
 // Initialize global sandbox manager as early as possible
 // We'll set up the actual instance after creating dockerManager
 
@@ -159,6 +159,17 @@ class MCPServerManager {
   };
 
   async startServer(): Promise<MCPServerStatus> {
+    // Return current status if already running
+    if (this.status.status === 'running') {
+      console.log('MCP Server already running');
+      return this.status;
+    }
+
+    // Reset status if in error state
+    if (this.status.status === 'error') {
+      this.status.status = 'stopped';
+    }
+
     try {
       this.status.status = 'starting';
       console.log('Starting MCP Server...');
@@ -182,6 +193,47 @@ class MCPServerManager {
       return this.status;
     } catch (error) {
       console.error('Failed to start MCP server:', error);
+      this.status = {
+        status: 'error',
+        port: 8888,
+        activeSessions: 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+      return this.status;
+    }
+  }
+
+  async stopServer(): Promise<MCPServerStatus> {
+    // Return current status if already stopped
+    if (this.status.status === 'stopped') {
+      console.log('MCP Server already stopped');
+      return this.status;
+    }
+
+    try {
+      const previousStatus = this.status.status;
+      this.status.status = 'starting';
+      console.log('Stopping MCP Server...');
+
+      // Stop the current server if running
+      if (previousStatus === 'running') {
+        try {
+          await mcpServer.stop();
+          console.log('MCP Server stopped successfully');
+        } catch (stopError) {
+          console.warn('Failed to stop server gracefully:', stopError);
+        }
+      }
+
+      this.status = {
+        status: 'stopped',
+        port: 8888,
+        activeSessions: 0,
+      };
+
+      return this.status;
+    } catch (error) {
+      console.error('Failed to stop MCP server:', error);
       this.status = {
         status: 'error',
         port: 8888,
@@ -283,40 +335,99 @@ ipcMain.handle('mcp-restart-server', async () => {
   }
 });
 
-// // TCP Forwarder IPC handlers
-// ipcMain.handle('tcp-start-forwarders', async () => {
-//   try {
-//     await tcpForwarder.startAllForwarders();
-//     return { success: true };
-//   } catch (error) {
-//     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-//   }
-// });
+ipcMain.handle('mcp-stop-server', async () => {
+  try {
+    const status = await mcpServerManager.stopServer();
+    return { success: true, status };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
 
-// ipcMain.handle('tcp-stop-forwarders', async () => {
-//   try {
-//     await tcpForwarder.stopAllForwarders();
-//     return { success: true };
-//   } catch (error) {
-//     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-//   }
-// });
+// TCP Forwarder IPC handlers - Status only (managed by MCP server)
+ipcMain.handle('tcp-get-status', async () => {
+  try {
+    // Since TCP forwarder is managed by MCP server, we return the configured ports
+    // The actual forwarder status is handled within the MCP server context
+    const configuredPorts = DEFAULT_CONTAINER_PORTS.map(port => ({
+      port,
+      isRunning: mcpServerManager.getStatus().status === 'running'
+    }));
 
-// ipcMain.handle('tcp-get-status', async () => {
-//   try {
-//     const status = tcpForwarder.getForwarderStatus();
-//     const areRunning = tcpForwarder.areForwardersRunning();
-//     return { success: true, status, areRunning };
-//   } catch (error) {
-//     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-//   }
-// });
+    const areRunning = mcpServerManager.getStatus().status === 'running';
 
-// ipcMain.handle('tcp-get-session-domain', async (_, sessionId: string, port?: number) => {
-//   try {
-//     const domain = tcpForwarder.getSessionDomain(sessionId, port);
-//     return { success: true, domain };
-//   } catch (error) {
-//     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-//   }
-// });
+    return {
+      success: true,
+      status: configuredPorts,
+      areRunning
+    };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Sandbox Manager IPC handlers
+ipcMain.handle('sandbox-manager-get-status', async () => {
+  try {
+    const activeSessions = sandboxManagerForMain.getAllSessions();
+    const containers = sandboxManagerForMain.getAllContainers();
+
+    return {
+      success: true,
+      status: {
+        activeSessions: activeSessions.length,
+        sessions: activeSessions,
+        containers: containers.length,
+        containerList: containers
+      }
+    };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('sandbox-manager-delete-sandbox', async (_, sessionId: string) => {
+  try {
+    const success = sandboxManagerForMain.endSession(sessionId);
+    return { success };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// TCP Forwarder IPC handlers - Direct access to forwarder
+ipcMain.handle('tcp-forwarder-get-status', async () => {
+  try {
+    const areRunning = tcpForwarder.areForwardersRunning();
+    const forwarderStatus = DEFAULT_CONTAINER_PORTS.map(port => ({
+      port,
+      isRunning: areRunning
+    }));
+
+    return {
+      success: true,
+      areRunning,
+      status: forwarderStatus
+    };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('tcp-forwarder-start', async () => {
+  try {
+    await tcpForwarder.startAllForwarders();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('tcp-forwarder-stop', async () => {
+  try {
+    await tcpForwarder.stopAllForwarders();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});

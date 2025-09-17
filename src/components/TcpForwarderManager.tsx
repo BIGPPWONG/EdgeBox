@@ -1,71 +1,64 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from './ui/button';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
+
+// Global debug mode configuration - imported from app config
+const DEBUG_MODE_ENABLED = window.DEBUG_MODE_ENABLED || false; // Check for global debug mode setting
 
 interface ForwarderStatus {
   port: number;
   isRunning: boolean;
 }
 
-export const TcpForwarderManager: React.FC = () => {
+// Hook for TCP forwarder data
+const useTcpForwarder = () => {
   const [forwarders, setForwarders] = useState<ForwarderStatus[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [debugMode, setDebugMode] = useState(DEBUG_MODE_ENABLED);
 
   const refreshStatus = async () => {
     try {
-      const result = await window.tcpAPI.getStatus();
+      const result = await window.tcpForwarderAPI.getStatus();
       if (result.success && result.status) {
         setForwarders(result.status);
-        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Status updated: ${result.status!.length} forwarders`]);
+        setIsRunning(result.areRunning || false);
       }
     } catch (error) {
       console.error('Failed to get TCP forwarder status:', error);
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: Failed to get status - ${error instanceof Error ? error.message : 'Unknown error'}`]);
     }
   };
 
-  const handleStartForwarders = async () => {
+  const startForwarders = async () => {
     setIsLoading(true);
     try {
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Starting TCP forwarders...`]);
-      
-      const result = await window.tcpAPI.startForwarders();
+      const result = await window.tcpForwarderAPI.start();
       if (result.success) {
-        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] TCP forwarders started successfully`]);
         await refreshStatus();
-      } else {
-        throw new Error(result.error || 'Failed to start forwarders');
       }
     } catch (error) {
       console.error('Failed to start TCP forwarders:', error);
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: Failed to start forwarders - ${error instanceof Error ? error.message : 'Unknown error'}`]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleStopForwarders = async () => {
+  const stopForwarders = async () => {
     setIsLoading(true);
     try {
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Stopping TCP forwarders...`]);
-      
-      const result = await window.tcpAPI.stopForwarders();
+      const result = await window.tcpForwarderAPI.stop();
       if (result.success) {
-        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] TCP forwarders stopped successfully`]);
         await refreshStatus();
-      } else {
-        throw new Error(result.error || 'Failed to stop forwarders');
       }
     } catch (error) {
       console.error('Failed to stop TCP forwarders:', error);
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: Failed to stop forwarders - ${error instanceof Error ? error.message : 'Unknown error'}`]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const clearLogs = () => {
-    setLogs([]);
+  const toggleDebugMode = () => {
+    setDebugMode(!debugMode);
   };
 
   useEffect(() => {
@@ -74,152 +67,114 @@ export const TcpForwarderManager: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const runningCount = forwarders.filter(f => f.isRunning).length;
-  const allRunning = forwarders.length > 0 && runningCount === forwarders.length;
+  return {
+    forwarders,
+    isRunning,
+    isLoading,
+    debugMode,
+    refreshStatus,
+    startForwarders,
+    stopForwarders,
+    toggleDebugMode
+  };
+};
+
+// TCP Forwarder监听端口列表卡片
+export const TcpForwarderStatusCard: React.FC = () => {
+  const { forwarders, isRunning, isLoading, debugMode, startForwarders, stopForwarders, toggleDebugMode } = useTcpForwarder();
 
   return (
-    <div className="space-y-6">
-      {/* Status Overview */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-medium">TCP Forwarder Status</h2>
-            <div className="flex items-center space-x-3 mt-2">
-              <span className={`px-3 py-1 text-sm font-medium rounded-full ${
-                allRunning 
-                  ? 'text-green-600 bg-green-100' 
-                  : runningCount > 0 
-                    ? 'text-yellow-600 bg-yellow-100'
-                    : 'text-gray-600 bg-gray-100'
-              }`}>
-                {allRunning ? 'All Running' : runningCount > 0 ? 'Partial' : 'Stopped'}
-              </span>
-              <span className="text-sm text-gray-600">
-                {runningCount}/{forwarders.length} Active
-              </span>
-            </div>
+    <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-100 h-full overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <span className="text-white text-sm">🔀</span>
           </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">TCP Forwarder</h3>
+            <p className="text-slate-600 text-xs">Listening Port List</p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Badge variant="outline" className={`${isRunning ? 'bg-green-100 text-green-700 border-green-200' : 'bg-blue-100 text-blue-700 border-blue-200'} text-xs`}>
+            {isRunning ? 'Running' : 'Auto'}
+          </Badge>
+          {/* <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
+            {forwarders.length} Ports
+          </Badge> */}
+        </div>
+      </div>
 
-          <div className="flex space-x-2">
-            {!allRunning && (
-              <Button
-                onClick={handleStartForwarders}
-                disabled={isLoading}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {isLoading ? 'Starting...' : 'Start All'}
-              </Button>
-            )}
-            {runningCount > 0 && (
-              <Button
-                onClick={handleStopForwarders}
-                disabled={isLoading}
-                variant="outline"
-                className="border-red-300 text-red-600 hover:bg-red-50"
-              >
-                {isLoading ? 'Stopping...' : 'Stop All'}
-              </Button>
-            )}
-            <Button
-              onClick={refreshStatus}
-              variant="outline"
-              className="text-gray-600"
-            >
-              Refresh
-            </Button>
+      <div className="space-y-2 flex-1 min-h-0">
+        <div className="p-3 bg-white/70 rounded-lg">
+          <div className="flex items-center space-x-2 mb-2">
+            <span className="text-sm">🎯</span>
+            <span className="text-sm font-medium text-slate-700">Configured Listening Ports</span>
+          </div>
+          <div className="font-mono text-sm text-blue-600 font-bold break-all">
+            {forwarders.length > 0
+              ? forwarders.map(f => `${f.port}${f.isRunning ? ' ✓' : ' ✗'}`).join(', ')
+              : 'No configured ports'
+            }
           </div>
         </div>
 
-        {/* Forwarder List */}
-        {forwarders.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {forwarders.map((forwarder) => (
-              <div
-                key={forwarder.port}
-                className="p-4 bg-gray-50 rounded-lg border"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-gray-900">
-                      Port {forwarder.port}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      TCP Forwarder
-                    </div>
-                  </div>
-                  <span className={`px-2 py-1 text-xs font-medium rounded ${
-                    forwarder.isRunning
-                      ? 'bg-green-100 text-green-600'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {forwarder.isRunning ? 'Running' : 'Stopped'}
-                  </span>
-                </div>
+        {debugMode && (
+          <div className="p-3 bg-white/70 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm">🔧</span>
+                <span className="text-sm font-medium text-slate-700">Manual Controls (Debug)</span>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            No forwarders configured
+              <button
+                onClick={toggleDebugMode}
+                className="px-2 py-1 text-xs bg-gray-200 text-gray-600 rounded hover:bg-gray-300"
+              >
+                Hide
+              </button>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={startForwarders}
+                disabled={isLoading || isRunning}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${isLoading || isRunning
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-green-500 text-white hover:bg-green-600'
+                  }`}
+              >
+                {isLoading ? 'Starting...' : 'Start'}
+              </button>
+              <button
+                onClick={stopForwarders}
+                disabled={isLoading || !isRunning}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${isLoading || !isRunning
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-red-500 text-white hover:bg-red-600'
+                  }`}
+              >
+                {isLoading ? 'Stopping...' : 'Stop'}
+              </button>
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Configuration Info */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-medium mb-4">Configuration</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Default Ports
-            </label>
-            <div className="text-sm text-gray-600">
-              Automatically configured from container ports
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Protocol
-            </label>
-            <div className="text-sm text-gray-600">
-              TCP with session-based routing
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-          <div className="flex items-start">
-            <div className="text-blue-600 text-sm">
-              <strong>Info:</strong> TCP forwarders automatically route traffic to sandbox containers 
-              based on session IDs. They start on-demand when sandboxes are created.
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Logs */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium">Forwarder Logs</h3>
-          <Button
-            onClick={clearLogs}
-            variant="outline"
-            size="sm"
-            className="text-gray-600"
-          >
-            Clear Logs
-          </Button>
-        </div>
-        <div className="bg-black text-green-400 font-mono text-sm p-4 rounded-lg h-48 overflow-y-auto">
-          {logs.length === 0 ? (
-            <div className="text-gray-500">No logs yet...</div>
-          ) : (
-            logs.map((log, index) => (
-              <div key={index}>{log}</div>
-            ))
-          )}
+        <div className="p-2 bg-blue-100 rounded-lg">
+          <div className="text-xs font-medium text-blue-700">💡 Note</div>
+          <div className="text-xs text-blue-600 mt-1">
+            TCP forwarder is managed by MCP server automatically. Manual controls are only available in debug mode for troubleshooting.
+          </div>
         </div>
       </div>
+    </Card>
+  );
+};
+
+// 简化的TCP Forwarder组件，仅显示端口列表
+export const TcpForwarderManager: React.FC = () => {
+  return (
+    <div className="space-y-6">
+      <TcpForwarderStatusCard />
     </div>
   );
 };

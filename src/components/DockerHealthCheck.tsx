@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import '../types/docker';
 
 export const DockerHealthCheck: React.FC = () => {
@@ -30,101 +33,114 @@ export const DockerHealthCheck: React.FC = () => {
     checkDockerStatus();
   }, []);
 
-  const getStatusColor = () => {
-    if (isChecking) return { bg: '#fef3c7', text: '#f59e0b' };
-    if (isDockerRunning === null) return { bg: '#f3f4f6', text: '#6b7280' };
-    return isDockerRunning 
-      ? { bg: '#d1fae5', text: '#10b981' }
-      : { bg: '#fee2e2', text: '#ef4444' };
+  const getStatusBadge = () => {
+    if (isChecking) {
+      return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs">Checking...</Badge>;
+    }
+    if (isDockerRunning === null) {
+      return <Badge variant="outline" className="text-xs">Unknown</Badge>;
+    }
+    return isDockerRunning
+      ? <Badge className="bg-green-500 text-white text-xs">Running</Badge>
+      : <Badge variant="destructive" className="text-xs">Not Running</Badge>;
   };
 
-  const statusColors = getStatusColor();
+  const getStatusMessage = () => {
+    if (isDockerRunning) {
+      return (
+        <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <span className="text-green-600 text-lg">✓</span>
+          <span className="text-sm text-green-700 font-medium">
+            Docker is running and ready to create sandboxes
+          </span>
+        </div>
+      );
+    }
+
+    if (isDockerRunning === false) {
+      return (
+        <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <span className="text-red-600 text-lg">✗</span>
+          <span className="text-sm text-red-700 font-medium">
+            Docker is not available. Please start Docker to create sandboxes.
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center space-x-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+        <span className="text-gray-600 text-lg">?</span>
+        <span className="text-sm text-gray-700 font-medium">
+          Docker status unknown. Click refresh to check.
+        </span>
+      </div>
+    );
+  };
 
   return (
-    <div style={{ 
-      backgroundColor: 'white', 
-      padding: '24px',
-      borderRadius: '8px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-      marginBottom: '24px'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <h2 style={{ 
-          fontSize: '18px', 
-          fontWeight: '500', 
-          margin: 0 
-        }}>
-          Docker Service Status
-        </h2>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{
-            padding: '4px 8px',
-            fontSize: '12px',
-            fontWeight: '500',
-            borderRadius: '4px',
-            backgroundColor: statusColors.bg,
-            color: statusColors.text
-          }}>
-            {isChecking ? 'Checking...' : 
-             isDockerRunning === null ? 'Unknown' :
-             isDockerRunning ? 'Running' : 'Not Running'}
-          </span>
-          
-          <button
+    <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-100 h-full overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <span className="text-white text-sm">🐳</span>
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Docker Service</h3>
+            <p className="text-slate-600 text-xs">Container Engine Status</p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          {getStatusBadge()}
+        </div>
+      </div>
+
+      <div className="space-y-2 flex-1 min-h-0">
+        <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <span className="text-xs">📅</span>
+            <span className="text-xs font-medium">Last Check</span>
+          </div>
+          <span className="text-xs text-slate-600">{lastChecked.toLocaleTimeString()}</span>
+        </div>
+
+        {isDockerRunning ? (
+          <div className="flex items-center space-x-2 p-2 bg-green-100 rounded-lg">
+            <span className="text-green-600 text-sm">✓</span>
+            <span className="text-xs text-green-700 font-medium">
+              Docker is running normally, ready to create sandboxes
+            </span>
+          </div>
+        ) : isDockerRunning === false ? (
+          <div className="flex items-center space-x-2 p-2 bg-red-100 rounded-lg">
+            <span className="text-red-600 text-sm">✗</span>
+            <span className="text-xs text-red-700 font-medium">
+              Docker is not running, please start Docker
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg">
+            <span className="text-gray-600 text-sm">?</span>
+            <span className="text-xs text-gray-700 font-medium">
+              Status unknown, click refresh to check
+            </span>
+          </div>
+        )}
+
+        <div className="pt-1">
+          <Button
             onClick={checkDockerStatus}
             disabled={isChecking}
-            style={{
-              padding: '6px 12px',
-              backgroundColor: isChecking ? '#9ca3af' : '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: isChecking ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: '500'
-            }}
+            variant="outline"
+            size="sm"
+            className="w-full"
           >
-            {isChecking ? 'Checking...' : 'Refresh'}
-          </button>
+            {isChecking ? 'Checking...' : '🔄 Refresh Status'}
+          </Button>
         </div>
       </div>
-
-      <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '12px' }}>
-        Last checked: {lastChecked.toLocaleString()}
-      </div>
-
-      {isDockerRunning ? (
-        <div style={{ 
-          fontSize: '14px', 
-          color: '#10b981',
-          backgroundColor: '#f0fdf4',
-          padding: '8px 12px',
-          borderRadius: '4px'
-        }}>
-          ✓ Docker is running and ready to create sandboxes
-        </div>
-      ) : isDockerRunning === false ? (
-        <div style={{ 
-          fontSize: '14px', 
-          color: '#ef4444',
-          backgroundColor: '#fef2f2',
-          padding: '8px 12px',
-          borderRadius: '4px'
-        }}>
-          ✗ Docker is not available. Please start Docker to create sandboxes.
-        </div>
-      ) : (
-        <div style={{ 
-          fontSize: '14px', 
-          color: '#6b7280',
-          backgroundColor: '#f9fafb',
-          padding: '8px 12px',
-          borderRadius: '4px'
-        }}>
-          Docker status unknown. Click refresh to check.
-        </div>
-      )}
-    </div>
+    </Card>
   );
 };
+

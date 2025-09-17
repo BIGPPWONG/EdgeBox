@@ -1,55 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import { DockerContainer } from '../types/docker';
-import { sandboxManagerForRender } from '../services/sandbox-manager';
 
-// Function to get the current global sandbox manager
-function getSandboxManager(): typeof sandboxManagerForRender {
-  return sandboxManagerForRender;
-}
+type SandboxStatusResponse = {
+  activeSessions: number;
+  sessions: any[];
+  containers: number;
+  containerList: DockerContainer[];
+};
 
 export const MinimalSandboxManager: React.FC = () => {
   const [containers, setContainers] = useState<DockerContainer[]>([]);
-  const [isCreating, setIsCreating] = useState(false);
-  const [newContainerName, setNewContainerName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
-  const refreshContainers = async () => {
-    try {
-      const manager = getSandboxManager();
-      if (!manager) {
-        console.warn('Sandbox manager not available yet');
-        return;
-      }
-      const containers = manager.getAllContainers();
-      setContainers(containers);
-    } catch (error) {
-      console.error('Error getting containers:', error);
+  const refreshContainers = async (isManual = false) => {
+    if (isManual) {
+      setIsLoading(true);
     }
-  };
+    setRefreshError(null);
 
-  const handleCreateContainer = async () => {
-    if (!newContainerName.trim()) return;
-
-    setIsCreating(true);
     try {
-      const manager = getSandboxManager();
-      if (!manager) {
-        throw new Error('Sandbox manager not available');
+      const result = await (window as any).sandboxManagerAPI.getStatus();
+      if (result.success) {
+        const status = result.status as SandboxStatusResponse;
+        setContainers(status.containerList);
+        setLastRefresh(new Date());
+      } else {
+        const errorMsg = result.error || 'Unknown error';
+        console.error('Error getting containers:', errorMsg);
+        setRefreshError(errorMsg);
       }
-      const sandboxId = await manager.createSandboxForSession(newContainerName.trim());
-      setNewContainerName('');
-      await refreshContainers();
-      console.log(`Created and started sandbox: ${sandboxId}`);
     } catch (error) {
-      console.error('Failed to create sandbox:', error);
-      alert(`Failed to create sandbox: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error getting containers:', errorMsg);
+      setRefreshError(errorMsg);
     } finally {
-      setIsCreating(false);
+      if (isManual) {
+        setIsLoading(false);
+      }
     }
   };
+
 
   useEffect(() => {
     refreshContainers();
-    const interval = setInterval(refreshContainers, 5000);
+    const interval = setInterval(() => refreshContainers(false), 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -57,22 +53,23 @@ export const MinimalSandboxManager: React.FC = () => {
     if (confirm(`Stop container "${containerName}"?`)) {
       try {
         // Find the session for this container and end it
-        const manager = getSandboxManager();
-        if (!manager) {
-          throw new Error('Sandbox manager not available');
-        }
-        const sessions = manager.getAllSessions();
-        const session = sessions.find((s: any) => {
-          const container = manager.getContainerForSession(s.sessionId);
-          return container?.name === containerName;
-        });
+        const result = await (window as any).sandboxManagerAPI.getStatus();
+        if (result.success) {
+          const status = result.status as SandboxStatusResponse;
+          const session = status.sessions.find((s: any) => {
+            const container = status.containerList.find((c: DockerContainer) => c.id === s.sandboxId);
+            return container?.name === containerName;
+          });
 
-        if (session) {
-          manager.endSession(session.sessionId);
-          await refreshContainers();
-          console.log(`Stopped container: ${containerName}`);
+          if (session) {
+            const deleteResult = await (window as any).sandboxManagerAPI.deleteSandbox(session.sessionId);
+            await refreshContainers();
+            console.log(`Stopped container: ${containerName}`);
+          } else {
+            alert('Could not find session for this container');
+          }
         } else {
-          alert('Could not find session for this container');
+          alert('Failed to get sandbox status');
         }
       } catch (error) {
         console.error('Failed to stop container:', error);
@@ -83,62 +80,6 @@ export const MinimalSandboxManager: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Create Sandbox Form */}
-      <div style={{
-        backgroundColor: 'white',
-        padding: '24px',
-        borderRadius: '8px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-      }}>
-        <h2 style={{
-          fontSize: '18px',
-          fontWeight: '500',
-          margin: '0 0 16px 0'
-        }}>
-          Create Test Container
-        </h2>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'end' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{
-              display: 'block',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '4px'
-            }}>
-              Container Name
-            </label>
-            <input
-              type="text"
-              value={newContainerName}
-              onChange={(e) => setNewContainerName(e.target.value)}
-              placeholder="sandbox-test-1"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: '4px',
-                fontSize: '14px'
-              }}
-            />
-          </div>
-          <button
-            onClick={handleCreateContainer}
-            disabled={isCreating || !newContainerName.trim()}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: isCreating || !newContainerName.trim() ? '#9ca3af' : '#10b981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: isCreating || !newContainerName.trim() ? 'not-allowed' : 'pointer',
-              fontWeight: '500'
-            }}
-          >
-            {isCreating ? 'Starting...' : 'Start Container'}
-          </button>
-        </div>
-      </div>
 
       {/* Running Sandboxes List */}
       <div style={{
@@ -148,15 +89,71 @@ export const MinimalSandboxManager: React.FC = () => {
       }}>
         <div style={{
           padding: '16px 24px',
-          borderBottom: '1px solid #e5e7eb'
+          borderBottom: '1px solid #e5e7eb',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
         }}>
-          <h2 style={{
-            fontSize: '18px',
-            fontWeight: '500',
-            margin: 0
-          }}>
-            Running Containers ({containers.length})
-          </h2>
+          <div>
+            <h2 style={{
+              fontSize: '18px',
+              fontWeight: '500',
+              margin: 0
+            }}>
+              Running Sandboxes ({containers.length})
+            </h2>
+            {lastRefresh && (
+              <div style={{
+                fontSize: '12px',
+                color: '#6b7280',
+                marginTop: '4px'
+              }}>
+                Last refresh: {lastRefresh.toLocaleTimeString()}
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {refreshError && (
+              <div style={{
+                fontSize: '12px',
+                color: '#ef4444',
+                padding: '4px 8px',
+                backgroundColor: '#fef2f2',
+                borderRadius: '4px',
+                border: '1px solid #fecaca'
+              }}>
+                {refreshError}
+              </div>
+            )}
+            <button
+              onClick={() => refreshContainers(true)}
+              disabled={isLoading}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: isLoading ? '#9ca3af' : '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {isLoading ? (
+                <>
+                  <span>↻</span>
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <span>↻</span>
+                  Refresh
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {containers.length === 0 ? (
@@ -165,7 +162,7 @@ export const MinimalSandboxManager: React.FC = () => {
             textAlign: 'center',
             color: '#6b7280'
           }}>
-            <p style={{ margin: 0 }}>No running containers</p>
+            <p style={{ margin: 0 }}>No running sandboxes</p>
           </div>
         ) : (
           <div>

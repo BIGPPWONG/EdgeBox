@@ -57,7 +57,10 @@
     "zod": "^4.1.8"
   },
   "dependencies": {
+    "@radix-ui/react-progress": "^1.1.7",
+    "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.13",
     "dotenv": "^17.2.2",
     "electron-squirrel-startup": "^1.0.1",
     "http-proxy": "^1.18.1"

@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
 import { MCPServerStatus } from '../types/docker';
 
 interface LocalMCPServerStatus extends MCPServerStatus {
@@ -7,7 +9,8 @@ interface LocalMCPServerStatus extends MCPServerStatus {
   uptime: string;
 }
 
-export const MCPServerManager: React.FC = () => {
+// Hook for MCP server data
+const useMCPServer = () => {
   const [serverStatus, setServerStatus] = useState<LocalMCPServerStatus>({
     status: 'starting',
     port: 8888,
@@ -16,72 +19,57 @@ export const MCPServerManager: React.FC = () => {
     uptime: '0m',
     startTime: new Date(),
   });
-  const [logs, setLogs] = useState<string[]>([]);
 
-  // Auto-start MCP server when component mounts
-  useEffect(() => {
-    const initializeMcpServer = async () => {
-      try {
-        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Initializing MCP Server...`]);
-        
-        // First check if server is already running
-        const statusResult = await window.mcpAPI.getStatus();
-        
-        if (statusResult.success && statusResult.status?.status === 'running') {
-          // Server is already running
-          setServerStatus(prev => ({ 
-            ...prev, 
-            ...statusResult.status,
-            totalRequests: prev.totalRequests,
-            uptime: statusResult.status!.startTime 
-              ? formatUptime(Date.now() - new Date(statusResult.status!.startTime).getTime())
-              : '0s',
+  const initializeMcpServer = useCallback(async () => {
+    try {
+      const statusResult = await window.mcpAPI.getStatus();
+      console.log('MCP Server status:', statusResult);
+
+      if (statusResult.success && statusResult.status?.status === 'running') {
+        setServerStatus(prev => ({
+          ...prev,
+          ...statusResult.status,
+          totalRequests: prev.totalRequests,
+          uptime: statusResult.status!.startTime
+            ? formatUptime(Date.now() - new Date(statusResult.status!.startTime).getTime())
+            : '0s',
+        }));
+      } else {
+        const startResult = await window.mcpAPI.startServer();
+        if (startResult.success && startResult.status) {
+          setServerStatus(prev => ({
+            ...prev,
+            ...startResult.status,
+            totalRequests: 0,
+            uptime: '0s',
           }));
-          setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] MCP Server is already running on port ${statusResult.status!.port}`]);
-        } else {
-          // Server is not running, start it
-          setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Starting MCP Server...`]);
-          setServerStatus(prev => ({ ...prev, status: 'starting' }));
-          
-          const startResult = await window.mcpAPI.startServer();
-          if (startResult.success && startResult.status) {
-            setServerStatus(prev => ({ 
-              ...prev, 
-              ...startResult.status,
-              totalRequests: 0,
-              uptime: '0s',
-            }));
-            setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] MCP Server started successfully on port ${startResult.status!.port}`]);
-          } else {
-            throw new Error(startResult.error || 'Failed to start server');
-          }
         }
-      } catch (error) {
-        console.error('Failed to initialize MCP server:', error);
-        setServerStatus(prev => ({ ...prev, status: 'error' }));
-        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: Failed to initialize MCP Server - ${error instanceof Error ? error.message : 'Unknown error'}`]);
       }
-    };
-
-    initializeMcpServer();
+    } catch (error) {
+      console.error('Failed to initialize MCP server:', error);
+      setServerStatus(prev => ({ ...prev, status: 'error' }));
+    }
   }, []);
 
-  // Update server metrics periodically
+  useEffect(() => {
+    initializeMcpServer();
+  }, [initializeMcpServer]);
+
   useEffect(() => {
     const interval = setInterval(async () => {
       if (serverStatus.status === 'running') {
         try {
           const result = await window.mcpAPI.getStatus();
           if (result.success && result.status) {
-            const uptime = result.status.startTime 
+            const uptime = result.status.startTime
               ? formatUptime(Date.now() - new Date(result.status.startTime).getTime())
               : '0s';
-            
+
             setServerStatus(prev => ({
               ...prev,
               activeSessions: result.status!.activeSessions,
               uptime,
-              totalRequests: prev.totalRequests + Math.floor(Math.random() * 2), // Simulate request count
+              totalRequests: prev.totalRequests + Math.floor(Math.random() * 2),
             }));
           }
         } catch (error) {
@@ -97,7 +85,7 @@ export const MCPServerManager: React.FC = () => {
     const seconds = Math.floor(ms / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes % 60}m`;
     } else if (minutes > 0) {
@@ -107,188 +95,159 @@ export const MCPServerManager: React.FC = () => {
     }
   };
 
-  const handleRestartServer = async () => {
+  const restartServer = useCallback(async () => {
     try {
       setServerStatus(prev => ({ ...prev, status: 'starting' }));
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Restarting MCP Server...`]);
-      
       const result = await window.mcpAPI.restartServer();
-      
+
       if (result.success && result.status) {
-        setServerStatus(prev => ({ 
-          ...prev, 
+        setServerStatus(prev => ({
+          ...prev,
           ...result.status,
           totalRequests: 0,
           uptime: '0s',
         }));
-        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] MCP Server restarted successfully`]);
-      } else {
-        throw new Error(result.error || 'Failed to restart server');
       }
     } catch (error) {
       console.error('Failed to restart MCP server:', error);
       setServerStatus(prev => ({ ...prev, status: 'error' }));
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERROR: Failed to restart MCP Server - ${error instanceof Error ? error.message : 'Unknown error'}`]);
     }
-  };
+  }, []);
 
-  const clearLogs = () => {
-    setLogs([]);
-  };
+  return { serverStatus, restartServer };
+};
 
-  const getStatusColor = (status: string) => {
+// MCP Server运行状态卡片
+export const MCPServerStatusCard: React.FC = () => {
+  const { serverStatus, restartServer } = useMCPServer();
+
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'running': return 'text-green-600 bg-green-100';
-      case 'starting': return 'text-yellow-600 bg-yellow-100';
-      case 'error': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'running':
+        return <Badge className="bg-green-500 text-white text-xs">Running</Badge>;
+      case 'starting':
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs">Starting</Badge>;
+      case 'error':
+        return <Badge variant="destructive" className="text-xs">Error</Badge>;
+      default:
+        return <Badge variant="outline" className="text-xs">Unknown</Badge>;
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Server Status Card */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-lg font-medium">MCP Server Status</h2>
-            <div className="flex items-center space-x-3 mt-2">
-              <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(serverStatus.status)}`}>
-                {serverStatus.status}
-              </span>
-              {serverStatus.status === 'running' && (
-                <span className="text-sm text-gray-600">
-                  Port: {serverStatus.port}
-                </span>
-              )}
-            </div>
+    <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-100 h-full overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <span className="text-white text-sm">🔧</span>
           </div>
-          
-          <div className="flex space-x-2">
-            {serverStatus.status === 'running' && (
-              <Button
-                onClick={handleRestartServer}
-                variant="outline"
-                className="border-blue-300 text-blue-600 hover:bg-blue-50"
-              >
-                Restart Server
-              </Button>
-            )}
-            {serverStatus.status === 'error' && (
-              <Button
-                onClick={handleRestartServer}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                Restart Server
-              </Button>
-            )}
+          <div>
+            <h3 className="text-base font-bold text-slate-900">MCP Server</h3>
+            <p className="text-slate-600 text-xs">Runtime Status Monitor</p>
           </div>
         </div>
-
-        {/* Server Metrics */}
-        {serverStatus.status === 'running' && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{serverStatus.activeSessions}</div>
-              <div className="text-sm text-gray-600">Active Sessions</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{serverStatus.totalRequests}</div>
-              <div className="text-sm text-gray-600">Total Requests</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">{serverStatus.uptime}</div>
-              <div className="text-sm text-gray-600">Uptime</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">HTTP</div>
-              <div className="text-sm text-gray-600">Transport</div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Server Configuration */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-medium mb-4">Server Configuration</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Port
-            </label>
-            <input
-              type="number"
-              value={serverStatus.port}
-              disabled={true}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Max Sessions
-            </label>
-            <input
-              type="number"
-              defaultValue={10}
-              disabled={true}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-            />
-          </div>
-        </div>
-        
-        <div className="mt-4">
-          <div className="flex items-center space-x-4">
-            <label className="flex items-center">
-              <input type="checkbox" className="rounded border-gray-300" defaultChecked />
-              <span className="ml-2 text-sm text-gray-700">Auto-start with application</span>
-            </label>
-            <label className="flex items-center">
-              <input type="checkbox" className="rounded border-gray-300" />
-              <span className="ml-2 text-sm text-gray-700">Enable debug logging</span>
-            </label>
-          </div>
+        <div className="flex items-center space-x-2">
+          {getStatusBadge(serverStatus.status)}
         </div>
       </div>
 
-      {/* Available Tools */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-medium mb-4">Available Tools</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {[
-            'execute_python', 'execute_typescript', 'execute_r', 'execute_java', 'execute_bash',
-            'shell_run', 'shell_run_background', 'fs_list', 'fs_read', 'fs_write', 'fs_info', 'fs_watch'
-          ].map((tool) => (
-            <div key={tool} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-800">{tool}</span>
-              <span className="px-2 py-1 text-xs bg-green-100 text-green-600 rounded">Active</span>
+      {serverStatus.status === 'running' ? (
+        <div className="space-y-2 flex-1 min-h-0">
+          <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <span className="text-xs">⏱️</span>
+              <span className="text-xs font-medium">Uptime</span>
             </div>
-          ))}
-        </div>
-      </div>
+            <span className="text-xs font-bold text-blue-600">{serverStatus.uptime}</span>
+          </div>
 
-      {/* Server Logs */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium">Server Logs</h3>
+          <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <span className="text-xs">📊</span>
+              <span className="text-xs font-medium">Requests Processed</span>
+            </div>
+            <span className="text-xs font-bold text-green-600">{serverStatus.totalRequests}</span>
+          </div>
+
+          <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <span className="text-xs">🔗</span>
+              <span className="text-xs font-medium">Active Sessions</span>
+            </div>
+            <span className="text-xs font-bold text-purple-600">{serverStatus.activeSessions}</span>
+          </div>
+
+          <div className="mt-2 p-2 bg-blue-100 rounded-lg">
+            <div className="text-base font-bold text-blue-600">:{serverStatus.port}</div>
+            <div className="text-xs text-blue-700">Service Port</div>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-4 flex-1 flex flex-col justify-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <h4 className="text-xs font-semibold text-slate-700 mb-1">
+            {serverStatus.status === 'starting' ? 'Starting...' : 'Service Offline'}
+          </h4>
+          <p className="text-xs text-slate-600 mb-2">
+            {serverStatus.status === 'starting' ? 'Initializing protocol' : 'Please check configuration'}
+          </p>
           <Button
-            onClick={clearLogs}
+            onClick={restartServer}
             variant="outline"
             size="sm"
-            className="text-gray-600"
+            className="mt-2"
           >
-            Clear Logs
+            🔄 Restart
           </Button>
         </div>
-        <div className="bg-black text-green-400 font-mono text-sm p-4 rounded-lg h-64 overflow-y-auto">
-          {logs.length === 0 ? (
-            <div className="text-gray-500">No logs yet...</div>
-          ) : (
-            logs.map((log, index) => (
-              <div key={index}>{log}</div>
-            ))
-          )}
+      )}
+    </Card>
+  );
+};
+
+// MCP Server监听地址配置卡片
+export const MCPServerConfigCard: React.FC = () => {
+  // const { serverStatus } = useMCPServer();
+  const mcpUrl = `http://localhost:8888/mcp`;
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  return (
+    <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-100 h-full overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <span className="text-white text-sm">📡</span>
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">MCP Config</h3>
+            <p className="text-slate-600 text-xs">Claude Desktop Connection</p>
+          </div>
+        </div>
+        <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200 text-xs">
+          Ready
+        </Badge>
+      </div>
+
+      <div className="space-y-2 flex-1 min-h-0">
+        <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <span className="text-xs">🌊</span>
+            <span className="text-xs font-medium">Protocol Type</span>
+          </div>
+          <span className="text-xs font-bold text-blue-600">HTTP Streamable</span>
+        </div>
+
+        <div className="p-1.5 bg-white/60 rounded-lg">
+          <div className="flex items-center space-x-2 mb-1">
+            <span className="text-xs">🔗</span>
+            <span className="text-xs font-medium">Server Address</span>
+          </div>
+          <span className="text-xs font-bold text-green-600 font-mono break-all">{mcpUrl}</span>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };

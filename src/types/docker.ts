@@ -31,10 +31,17 @@ declare global {
       restartServer: () => Promise<{ success: boolean; status?: MCPServerStatus; error?: string }>;
     };
     tcpAPI: {
-      startForwarders: () => Promise<{ success: boolean; error?: string }>;
-      stopForwarders: () => Promise<{ success: boolean; error?: string }>;
       getStatus: () => Promise<{ success: boolean; status?: { port: number; isRunning: boolean }[]; areRunning?: boolean; error?: string }>;
-      getSessionDomain: (sessionId: string, port?: number) => Promise<{ success: boolean; domain?: string; error?: string }>;
     };
+    sandboxManagerAPI: {
+      getStatus: () => Promise<{ success: boolean; status?: { activeSessions: number; sessions: any[]; containers: number; containerList: DockerContainer[] }; error?: string }>;
+      deleteSandbox: (sessionId: string) => Promise<{ success: boolean; error?: string }>;
+    };
+    tcpForwarderAPI: {
+      getStatus: () => Promise<{ success: boolean; areRunning?: boolean; status?: { port: number; isRunning: boolean }[]; error?: string }>;
+      start: () => Promise<{ success: boolean; error?: string }>;
+      stop: () => Promise<{ success: boolean; error?: string }>;
+    };
+    DEBUG_MODE_ENABLED: boolean;
   }
 }

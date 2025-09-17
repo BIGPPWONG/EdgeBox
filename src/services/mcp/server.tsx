@@ -65,6 +65,12 @@ export function getActiveSessions(): Array<{ sessionId: string, sandboxId: strin
     }));
 }
 
+// Export the sandbox manager instance
+export { sandboxManagerForMain };
+
+// Export the TCP forwarder instance
+export { tcpForwarder };
+
 async function ensureSandbox(sessionId?: string | unknown) {
     const sessionIdStr = typeof sessionId === 'string' ? sessionId : undefined;
 
