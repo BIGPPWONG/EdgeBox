@@ -7,7 +7,7 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   debugMode: false,
-  defaultDockerImage: 'ubuntu:latest',
+  defaultDockerImage: 'e2b-sandbox:latest',
   mcpPort: 8888,
   autoStartMcp: true,
 };

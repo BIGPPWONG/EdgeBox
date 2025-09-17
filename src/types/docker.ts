@@ -24,6 +24,12 @@ declare global {
       startContainer: (name: string, image: string) => Promise<{ success: boolean; container?: DockerContainer; error?: string }>;
       stopContainer: (name: string) => Promise<{ success: boolean; error?: string }>;
       getContainers: () => Promise<{ success: boolean; containers?: DockerContainer[]; error?: string }>;
+      checkImage: (imageName: string) => Promise<{ success: boolean; hasImage?: boolean; error?: string }>;
+    };
+    settingsAPI: {
+      getSettings: () => Promise<{ success: boolean; settings?: any; error?: string }>;
+      updateSettings: (updates: any) => Promise<{ success: boolean; error?: string }>;
+      resetToDefaults: () => Promise<{ success: boolean; error?: string }>;
     };
     mcpAPI: {
       getStatus: () => Promise<{ success: boolean; status?: MCPServerStatus; error?: string }>;

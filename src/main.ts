@@ -154,6 +154,15 @@ ipcMain.handle('get-containers', async () => {
   }
 });
 
+ipcMain.handle('check-docker-image', async (_, imageName: string) => {
+  try {
+    const hasImage = await dockerManager.hasImage(imageName);
+    return { success: true, hasImage };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
 // MCP Server Management
 interface MCPServerStatus {
   status: 'starting' | 'running' | 'error' | 'stopped';

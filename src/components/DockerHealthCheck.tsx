@@ -9,20 +9,59 @@ export const DockerHealthCheck: React.FC = () => {
   const [isDockerRunning, setIsDockerRunning] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date>(new Date());
+  const [defaultImage, setDefaultImage] = useState<string>('');
+  const [hasDefaultImage, setHasDefaultImage] = useState<boolean | null>(null);
+
+  const loadSettings = async () => {
+    try {
+      const result = await window.settingsAPI.getSettings();
+      if (result.success && result.settings) {
+        setDefaultImage(result.settings.defaultDockerImage || 'ubuntu:latest');
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      setDefaultImage('ubuntu:latest');
+    }
+  };
+
+  const checkDockerImage = async (imageName: string) => {
+    if (!imageName) return;
+
+    try {
+      const result = await window.dockerAPI.checkImage(imageName);
+      if (result.success) {
+        setHasDefaultImage(result.hasImage || false);
+      } else {
+        setHasDefaultImage(false);
+        console.error('Docker image check failed:', result.error);
+      }
+    } catch (error) {
+      setHasDefaultImage(false);
+      console.error('Error checking Docker image:', error);
+    }
+  };
 
   const checkDockerStatus = async () => {
     setIsChecking(true);
     try {
+      // Check Docker daemon
       const result = await window.dockerAPI.pingDocker();
       if (result.success) {
         setIsDockerRunning(result.isRunning || false);
+
+        // If Docker is running, check for default image
+        if (result.isRunning && defaultImage) {
+          await checkDockerImage(defaultImage);
+        }
       } else {
         setIsDockerRunning(false);
+        setHasDefaultImage(null);
         console.error('Docker ping failed:', result.error);
       }
       setLastChecked(new Date());
     } catch (error) {
       setIsDockerRunning(false);
+      setHasDefaultImage(null);
       setLastChecked(new Date());
       console.error('Error checking Docker status:', error);
     } finally {
@@ -31,8 +70,14 @@ export const DockerHealthCheck: React.FC = () => {
   };
 
   useEffect(() => {
-    checkDockerStatus();
+    loadSettings();
   }, []);
+
+  useEffect(() => {
+    if (defaultImage) {
+      checkDockerStatus();
+    }
+  }, [defaultImage]);
 
   const getStatusBadge = () => {
     if (isChecking) {
@@ -81,7 +126,7 @@ export const DockerHealthCheck: React.FC = () => {
 
   return (
     <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-100 h-full overflow-hidden flex flex-col">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 flex-shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <Container size={16} className="text-white" />
@@ -97,7 +142,7 @@ export const DockerHealthCheck: React.FC = () => {
         </div>
       </div>
 
-      <div className="space-y-2 flex-1 min-h-0">
+      <div className="space-y-2 flex-1 min-h-0 overflow-y-auto">
         <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
           <div className="flex items-center space-x-2">
             <Calendar size={12} />
@@ -110,7 +155,7 @@ export const DockerHealthCheck: React.FC = () => {
           <div className="flex items-center space-x-2 p-2 bg-green-100 rounded-lg">
             <CheckCircle size={16} className="text-green-600" />
             <span className="text-xs text-green-700 font-medium">
-              Docker is running normally, ready to create sandboxes
+              Docker is running normally
             </span>
           </div>
         ) : isDockerRunning === false ? (
@@ -129,20 +174,55 @@ export const DockerHealthCheck: React.FC = () => {
           </div>
         )}
 
-        <div className="pt-1">
-          <Button
-            onClick={checkDockerStatus}
-            disabled={isChecking}
-            variant="outline"
-            size="sm"
-            className="w-full"
-          >
-            <div className="flex items-center space-x-1">
-              <RefreshCw size={14} className={isChecking ? 'animate-spin' : ''} />
-              <span>{isChecking ? 'Checking...' : 'Refresh Status'}</span>
+        {defaultImage && isDockerRunning && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <Container size={12} />
+                <span className="text-xs font-medium">Default Image</span>
+              </div>
+              <span className="text-xs text-slate-600">{defaultImage}</span>
             </div>
-          </Button>
-        </div>
+
+            {hasDefaultImage === true ? (
+              <div className="flex items-center space-x-2 p-2 bg-green-100 rounded-lg">
+                <CheckCircle size={16} className="text-green-600" />
+                <span className="text-xs text-green-700 font-medium">
+                  Image is available, ready to create sandboxes
+                </span>
+              </div>
+            ) : hasDefaultImage === false ? (
+              <div className="flex items-center space-x-2 p-2 bg-orange-100 rounded-lg">
+                <XCircle size={16} className="text-orange-600" />
+                <span className="text-xs text-orange-700 font-medium">
+                  Image not found. Need to pull: {defaultImage}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg">
+                <HelpCircle size={16} className="text-gray-600" />
+                <span className="text-xs text-gray-700 font-medium">
+                  Checking image availability...
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="pt-1 flex-shrink-0">
+        <Button
+          onClick={checkDockerStatus}
+          disabled={isChecking}
+          variant="outline"
+          size="sm"
+          className="w-full"
+        >
+          <div className="flex items-center space-x-1">
+            <RefreshCw size={14} className={isChecking ? 'animate-spin' : ''} />
+            <span>{isChecking ? 'Checking...' : 'Refresh Status'}</span>
+          </div>
+        </Button>
       </div>
     </Card>
   );

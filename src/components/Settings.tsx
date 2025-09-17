@@ -4,15 +4,15 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 
-declare global {
-  interface Window {
-    settingsAPI: {
-      getSettings: () => Promise<{ success: boolean; settings?: AppSettings; error?: string }>;
-      updateSettings: (updates: Partial<AppSettings>) => Promise<{ success: boolean; error?: string }>;
-      resetToDefaults: () => Promise<{ success: boolean; error?: string }>;
-    };
-  }
-}
+// declare global {
+//   interface Window {
+//     settingsAPI: {
+//       getSettings: () => Promise<{ success: boolean; settings?: AppSettings; error?: string }>;
+//       updateSettings: (updates: Partial<AppSettings>) => Promise<{ success: boolean; error?: string }>;
+//       resetToDefaults: () => Promise<{ success: boolean; error?: string }>;
+//     };
+//   }
+// }
 
 export const Settings: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings | null>(null);

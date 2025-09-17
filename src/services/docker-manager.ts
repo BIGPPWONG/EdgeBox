@@ -242,4 +242,18 @@ export class DockerManager {
       });
     });
   }
+
+  async hasImage(imageName: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const inspectProcess = spawn('docker', ['image', 'inspect', imageName]);
+
+      inspectProcess.on('close', (code) => {
+        resolve(code === 0);
+      });
+
+      inspectProcess.on('error', () => {
+        resolve(false);
+      });
+    });
+  }
 }
