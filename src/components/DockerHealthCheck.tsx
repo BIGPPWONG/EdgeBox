@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import { Container, CheckCircle, XCircle, HelpCircle, Calendar, RefreshCw } from 'lucide-react';
 import '../types/docker';
 
 export const DockerHealthCheck: React.FC = () => {
@@ -83,7 +84,7 @@ export const DockerHealthCheck: React.FC = () => {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white text-sm">🐳</span>
+            <Container size={16} className="text-white" />
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900">Docker Service</h3>
@@ -99,7 +100,7 @@ export const DockerHealthCheck: React.FC = () => {
       <div className="space-y-2 flex-1 min-h-0">
         <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
           <div className="flex items-center space-x-2">
-            <span className="text-xs">📅</span>
+            <Calendar size={12} />
             <span className="text-xs font-medium">Last Check</span>
           </div>
           <span className="text-xs text-slate-600">{lastChecked.toLocaleTimeString()}</span>
@@ -107,21 +108,21 @@ export const DockerHealthCheck: React.FC = () => {
 
         {isDockerRunning ? (
           <div className="flex items-center space-x-2 p-2 bg-green-100 rounded-lg">
-            <span className="text-green-600 text-sm">✓</span>
+            <CheckCircle size={16} className="text-green-600" />
             <span className="text-xs text-green-700 font-medium">
               Docker is running normally, ready to create sandboxes
             </span>
           </div>
         ) : isDockerRunning === false ? (
           <div className="flex items-center space-x-2 p-2 bg-red-100 rounded-lg">
-            <span className="text-red-600 text-sm">✗</span>
+            <XCircle size={16} className="text-red-600" />
             <span className="text-xs text-red-700 font-medium">
               Docker is not running, please start Docker
             </span>
           </div>
         ) : (
           <div className="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg">
-            <span className="text-gray-600 text-sm">?</span>
+            <HelpCircle size={16} className="text-gray-600" />
             <span className="text-xs text-gray-700 font-medium">
               Status unknown, click refresh to check
             </span>
@@ -136,7 +137,10 @@ export const DockerHealthCheck: React.FC = () => {
             size="sm"
             className="w-full"
           >
-            {isChecking ? 'Checking...' : '🔄 Refresh Status'}
+            <div className="flex items-center space-x-1">
+              <RefreshCw size={14} className={isChecking ? 'animate-spin' : ''} />
+              <span>{isChecking ? 'Checking...' : 'Refresh Status'}</span>
+            </div>
           </Button>
         </div>
       </div>

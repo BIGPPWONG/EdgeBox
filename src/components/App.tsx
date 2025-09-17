@@ -3,20 +3,29 @@ import { Dashboard } from './Dashboard';
 import { MinimalSandboxManager } from './MinimalSandboxManager';
 import { TcpForwarderManager } from './TcpForwarderManager';
 import { Badge } from './ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from './ui/dialog';
+import { Home, Package, Globe, Settings, Info, User } from 'lucide-react';
 
 type TabType = 'dashboard' | 'containers' | 'mcp' | 'network';
 
 interface MenuItem {
   id: TabType;
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
   component: React.ComponentType;
 }
 
 const menuItems: MenuItem[] = [
-  { id: 'dashboard', label: 'Home', icon: '🏠', component: Dashboard },
-  { id: 'containers', label: 'Containers', icon: '📦', component: MinimalSandboxManager },
-  { id: 'network', label: 'Network', icon: '🌐', component: TcpForwarderManager },
+  { id: 'dashboard', label: 'Home', icon: Home, component: Dashboard },
+  { id: 'containers', label: 'Containers', icon: Package, component: MinimalSandboxManager },
+  { id: 'network', label: 'Network', icon: Globe, component: TcpForwarderManager },
 ];
 
 export const App: React.FC = () => {
@@ -42,7 +51,7 @@ export const App: React.FC = () => {
 
           <div className="flex items-center space-x-3 p-3 bg-slate-700/50 rounded-xl">
             <div className="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center">
-              <span className="text-slate-200 font-medium text-sm">👨‍💻</span>
+              <User size={16} className="text-slate-200" />
             </div>
             <div>
               <div className="font-medium text-sm">Developer</div>
@@ -65,7 +74,7 @@ export const App: React.FC = () => {
                 }
               `}
             >
-              <span className="text-lg">{item.icon}</span>
+              <item.icon size={18} />
               <span>{item.label}</span>
             </button>
           ))}
@@ -74,13 +83,39 @@ export const App: React.FC = () => {
         {/* 底部设置区域 */}
         <div className="p-4 border-t border-slate-700">
           <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200">
-            <span>⚙️</span>
+            <Settings size={18} />
             <span>Settings</span>
           </button>
-          <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200 mt-2">
-            <span>🚪</span>
-            <span>Log Out</span>
-          </button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200 mt-2">
+                <Info size={18} />
+                <span>About</span>
+              </button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>About E2B Manager</DialogTitle>
+                <DialogDescription>
+                  E2B Desktop Application for managing development containers and services.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Version:</span>
+                  <span className="text-sm text-slate-600">1.0.0</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Environment:</span>
+                  <span className="text-sm text-slate-600">Development</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Built with:</span>
+                  <span className="text-sm text-slate-600">Electron + React</span>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

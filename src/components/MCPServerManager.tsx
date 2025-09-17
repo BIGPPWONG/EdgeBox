@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { MCPServerStatus } from '../types/docker';
+import { Wrench, Clock, BarChart3, Link, RefreshCw, Radio } from 'lucide-react';
 
 interface LocalMCPServerStatus extends MCPServerStatus {
   totalRequests: number;
@@ -139,7 +140,7 @@ export const MCPServerStatusCard: React.FC = () => {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white text-sm">🔧</span>
+            <Wrench size={16} className="text-white" />
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900">MCP Server</h3>
@@ -155,7 +156,7 @@ export const MCPServerStatusCard: React.FC = () => {
         <div className="space-y-2 flex-1 min-h-0">
           <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
             <div className="flex items-center space-x-2">
-              <span className="text-xs">⏱️</span>
+              <Clock size={12} />
               <span className="text-xs font-medium">Uptime</span>
             </div>
             <span className="text-xs font-bold text-blue-600">{serverStatus.uptime}</span>
@@ -163,7 +164,7 @@ export const MCPServerStatusCard: React.FC = () => {
 
           <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
             <div className="flex items-center space-x-2">
-              <span className="text-xs">📊</span>
+              <BarChart3 size={12} />
               <span className="text-xs font-medium">Requests Processed</span>
             </div>
             <span className="text-xs font-bold text-green-600">{serverStatus.totalRequests}</span>
@@ -171,7 +172,7 @@ export const MCPServerStatusCard: React.FC = () => {
 
           <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
             <div className="flex items-center space-x-2">
-              <span className="text-xs">🔗</span>
+              <Link size={12} />
               <span className="text-xs font-medium">Active Sessions</span>
             </div>
             <span className="text-xs font-bold text-purple-600">{serverStatus.activeSessions}</span>
@@ -197,7 +198,10 @@ export const MCPServerStatusCard: React.FC = () => {
             size="sm"
             className="mt-2"
           >
-            🔄 Restart
+            <div className="flex items-center space-x-1">
+              <RefreshCw size={14} />
+              <span>Restart</span>
+            </div>
           </Button>
         </div>
       )}
@@ -219,7 +223,7 @@ export const MCPServerConfigCard: React.FC = () => {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white text-sm">📡</span>
+            <Radio size={16} className="text-white" />
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900">MCP Config</h3>
@@ -234,7 +238,7 @@ export const MCPServerConfigCard: React.FC = () => {
       <div className="space-y-2 flex-1 min-h-0">
         <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
           <div className="flex items-center space-x-2">
-            <span className="text-xs">🌊</span>
+            <Radio size={12} />
             <span className="text-xs font-medium">Protocol Type</span>
           </div>
           <span className="text-xs font-bold text-blue-600">HTTP Streamable</span>
@@ -242,7 +246,7 @@ export const MCPServerConfigCard: React.FC = () => {
 
         <div className="p-1.5 bg-white/60 rounded-lg">
           <div className="flex items-center space-x-2 mb-1">
-            <span className="text-xs">🔗</span>
+            <Link size={12} />
             <span className="text-xs font-medium">Server Address</span>
           </div>
           <span className="text-xs font-bold text-green-600 font-mono break-all">{mcpUrl}</span>

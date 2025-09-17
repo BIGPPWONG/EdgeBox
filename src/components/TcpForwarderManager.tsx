@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { Shuffle, Target, Wrench, Lightbulb } from 'lucide-react';
 
 // Global debug mode configuration - imported from app config
 const DEBUG_MODE_ENABLED = window.DEBUG_MODE_ENABLED || false; // Check for global debug mode setting
@@ -88,7 +89,7 @@ export const TcpForwarderStatusCard: React.FC = () => {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white text-sm">🔀</span>
+            <Shuffle size={16} className="text-white" />
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900">TCP Forwarder</h3>
@@ -108,7 +109,7 @@ export const TcpForwarderStatusCard: React.FC = () => {
       <div className="space-y-2 flex-1 min-h-0">
         <div className="p-3 bg-white/70 rounded-lg">
           <div className="flex items-center space-x-2 mb-2">
-            <span className="text-sm">🎯</span>
+            <Target size={16} />
             <span className="text-sm font-medium text-slate-700">Configured Listening Ports</span>
           </div>
           <div className="font-mono text-sm text-blue-600 font-bold break-all">
@@ -123,7 +124,7 @@ export const TcpForwarderStatusCard: React.FC = () => {
           <div className="p-3 bg-white/70 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">
-                <span className="text-sm">🔧</span>
+                <Wrench size={16} />
                 <span className="text-sm font-medium text-slate-700">Manual Controls (Debug)</span>
               </div>
               <button
@@ -160,7 +161,10 @@ export const TcpForwarderStatusCard: React.FC = () => {
 
 
         <div className="p-2 bg-blue-100 rounded-lg">
-          <div className="text-xs font-medium text-blue-700">💡 Note</div>
+          <div className="flex items-center space-x-1">
+            <Lightbulb size={12} className="text-blue-700" />
+            <span className="text-xs font-medium text-blue-700">Note</span>
+          </div>
           <div className="text-xs text-blue-600 mt-1">
             TCP forwarder is managed by MCP server automatically. Manual controls are only available in debug mode for troubleshooting.
           </div>
