@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('dockerAPI', {
   stopContainer: (name: string) => ipcRenderer.invoke('stop-container', name),
   getContainers: () => ipcRenderer.invoke('get-containers'),
   checkImage: (imageName: string) => ipcRenderer.invoke('check-docker-image', imageName),
+  loadBundledImage: () => ipcRenderer.invoke('load-bundled-docker-image'),
 });
 
 // Expose MCP Server API to renderer process

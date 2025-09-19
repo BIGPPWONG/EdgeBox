@@ -179,6 +179,15 @@ ipcMain.handle('check-docker-image', async (_, imageName: string) => {
   }
 });
 
+ipcMain.handle('load-bundled-docker-image', async () => {
+  try {
+    const result = await dockerManager.loadBundledSandboxImage();
+    return { success: result };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
 // MCP Server Management
 interface MCPServerStatus {
   status: 'starting' | 'running' | 'error' | 'stopped';

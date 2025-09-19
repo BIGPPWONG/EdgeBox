@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DockerContainer } from '../types/docker';
+import { Button } from './ui/button';
+import { Trash2 } from 'lucide-react';
 
 type SandboxStatusResponse = {
   activeSessions: number;
@@ -100,67 +102,32 @@ export const MinimalSandboxManager: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
+    <div className="flex flex-col gap-6">
       {/* Running Sandboxes List */}
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{
-          padding: '16px 24px',
-          borderBottom: '1px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
+      <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200/50">
+        <div className="px-6 py-4 border-b border-slate-200/60 flex justify-between items-center">
           <div>
-            <h2 style={{
-              fontSize: '18px',
-              fontWeight: '500',
-              margin: 0
-            }}>
+            <h2 className="text-xl font-semibold text-slate-800 mb-1">
               Running Sandboxes ({containers.length})
             </h2>
             {lastRefresh && (
-              <div style={{
-                fontSize: '12px',
-                color: '#6b7280',
-                marginTop: '4px'
-              }}>
+              <div className="text-sm text-slate-500">
                 Last refresh: {lastRefresh.toLocaleTimeString()}
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="flex items-center gap-3">
             {refreshError && (
-              <div style={{
-                fontSize: '12px',
-                color: '#ef4444',
-                padding: '4px 8px',
-                backgroundColor: '#fef2f2',
-                borderRadius: '4px',
-                border: '1px solid #fecaca'
-              }}>
+              <div className="text-xs text-red-600 px-3 py-2 bg-red-50/80 backdrop-blur-sm rounded-lg border border-red-200/50">
                 {refreshError}
               </div>
             )}
-            <button
+            <Button
               onClick={() => refreshContainers(true)}
               disabled={isLoading}
-              style={{
-                padding: '6px 12px',
-                backgroundColor: isLoading ? '#9ca3af' : '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
+              variant="default"
+              size="sm"
+              className="gap-2"
             >
               {isLoading ? (
                 <>
@@ -173,90 +140,66 @@ export const MinimalSandboxManager: React.FC = () => {
                   Refresh
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
         {containers.length === 0 ? (
-          <div style={{
-            padding: '48px',
-            textAlign: 'center',
-            color: '#6b7280'
-          }}>
-            <p style={{ margin: 0 }}>No running sandboxes</p>
+          <div className="py-16 text-center">
+            <div className="text-slate-400 text-lg font-medium">No running sandboxes</div>
+            <div className="text-slate-500 text-sm mt-2">Create a new sandbox to get started</div>
           </div>
         ) : (
           <div>
             {containers.map((container) => (
-              <div key={container.id} style={{
-                padding: '16px 24px',
-                borderBottom: '1px solid #e5e7eb',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <div style={{ fontWeight: '500', color: '#111827' }}>
+              <div key={container.id} className="p-6 border-b border-slate-200/40 last:border-b-0 flex items-center justify-between hover:bg-slate-50/50 transition-all duration-100">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="font-semibold text-slate-900 text-lg">
                       {container.name}
                     </div>
-                    <span style={{
-                      padding: '2px 6px',
-                      fontSize: '12px',
-                      fontWeight: '500',
-                      borderRadius: '4px',
-                      backgroundColor: container.status === 'running' ? '#d1fae5' : container.status === 'starting' ? '#fef3c7' : '#f3f4f6',
-                      color: container.status === 'running' ? '#10b981' : container.status === 'starting' ? '#f59e0b' : '#6b7280'
-                    }}>
+                    <span className={`
+                      px-3 py-1 text-xs font-medium rounded-full backdrop-blur-sm
+                      ${container.status === 'running'
+                        ? 'bg-emerald-100/80 text-emerald-700 border border-emerald-200/50'
+                        : container.status === 'starting'
+                          ? 'bg-amber-100/80 text-amber-700 border border-amber-200/50'
+                          : 'bg-slate-100/80 text-slate-600 border border-slate-200/50'
+                      }
+                    `}>
                       {container.status}
                     </span>
                   </div>
-                  <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                    Domain: {container.domain}
+                  <div className="text-slate-600 mb-1">
+                    <span className="font-medium">Domain:</span> {container.domain}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
-                    Ports: {Object.entries(container.ports).map(([containerPort, hostPort]) =>
+                  <div className="text-sm text-slate-500">
+                    <span className="font-medium">Ports:</span> {Object.entries(container.ports).map(([containerPort, hostPort]) =>
                       `${containerPort}→${hostPort}`
                     ).join(', ')}
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="flex items-center gap-3">
                   {/* VNC Button */}
                   {container.status === 'running' && (
-                    <button
+                    <Button
                       onClick={() => handleOpenVNC(container.name)}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: '#10b981',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
+                      variant="default"
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 gap-2"
                     >
-                      📺 VNC
-                    </button>
+                      VNC
+                    </Button>
                   )}
 
-                  <button
+                  <Button
                     onClick={() => handleStopContainer(container.name)}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
+                    variant="destructive"
+                    size="sm"
                   >
-                    Stop
-                  </button>
+                    <Trash2 size={16} className="text-white" />
+                  </Button>
                 </div>
               </div>
             ))}

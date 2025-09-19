@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { Button } from './ui/button';
+import { RefreshCw, Monitor } from 'lucide-react';
 
 type VNCStep = 'starting' | 'opening' | 'ready' | 'error';
 
 export const VNCPage: React.FC = () => {
   const { containerName } = useParams<{ containerName: string }>();
-  const navigate = useNavigate();
 
   const [currentStep, setCurrentStep] = useState<VNCStep>('starting');
   const [error, setError] = useState<string | null>(null);
@@ -66,15 +67,6 @@ export const VNCPage: React.FC = () => {
     startVNC();
   };
 
-  // 关闭窗口
-  const handleClose = () => {
-    if (window.close) {
-      window.close();
-    } else {
-      // 如果无法关闭窗口，导航回到主页
-      navigate('/');
-    }
-  };
 
   // 组件挂载时自动启动VNC
   useEffect(() => {
@@ -96,157 +88,79 @@ export const VNCPage: React.FC = () => {
     };
   }, [containerName]);
 
-  const getStepIcon = (step: VNCStep) => {
-    switch (step) {
-      case 'starting':
-        return '🔄';
-      case 'opening':
-        return '🚀';
-      case 'ready':
-        return '✅';
-      case 'error':
-        return '❌';
-      default:
-        return '🔄';
-    }
-  };
 
-  const getStepText = (step: VNCStep) => {
-    switch (step) {
-      case 'starting':
-        return '正在启动VNC服务...';
-      case 'opening':
-        return '正在准备VNC界面...';
-      case 'ready':
-        return 'VNC已就绪';
-      case 'error':
-        return '启动失败';
-      default:
-        return '处理中...';
-    }
-  };
 
   return (
-    <div style={{
-      width: '100vw',
-      height: '100vh',
-      backgroundColor: '#f5f5f5',
-      display: 'flex',
-      flexDirection: 'column',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
+    <div className="w-screen h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
       {/* 顶部标题栏 */}
-      <div style={{
-        padding: '16px 24px',
-        backgroundColor: 'white',
-        borderBottom: '1px solid #e5e7eb',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-      }}>
-        <h1 style={{
-          margin: 0,
-          fontSize: '20px',
-          fontWeight: '600',
-          color: '#111827'
-        }}>
-          VNC连接 - {containerName}
-        </h1>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          {currentStep === 'ready' && (
-            <button
+      <div className="drag-region px-3 py-1 bg-white/95 backdrop-blur-sm border-b border-slate-200/60 flex items-center">
+        <div className="w-20"></div>
+        <div className="flex-1 flex items-center justify-center gap-1.5">
+          <Monitor className="text-slate-600" size={16} />
+          <h1 className="text-sm font-medium text-slate-800">
+            VNC - {containerName}
+          </h1>
+        </div>
+        <div className="w-20 flex items-center justify-end gap-2">
+          {(
+            <Button
               onClick={handleReload}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#10b981',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500'
-              }}
+              variant="default"
+              size="sm"
+              className={`no-drag px-2 py-1 ${currentStep === 'ready'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : ''
+                }`}
             >
-              🔄 重新加载
-            </button>
+              <RefreshCw size={14} />
+            </Button>
           )}
-          {currentStep === 'error' && (
-            <button
-              onClick={handleReload}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500'
-              }}
-            >
-              🔄 重试
-            </button>
-          )}
-          <button
-            onClick={handleClose}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#6b7280',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '500'
-            }}
-          >
-            关闭
-          </button>
         </div>
       </div>
 
       {/* 主要内容区域 */}
-      <div style={{
-        flex: 1,
-        padding: '24px',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+      <div className="flex-1 flex flex-col">
         {/* 进度指示器 - 只在非ready状态显示 */}
         {currentStep !== 'ready' && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            padding: '24px',
-            backgroundColor: currentStep === 'error' ? '#fef2f2' : 'white',
-            borderRadius: '12px',
-            border: `1px solid ${currentStep === 'error' ? '#fecaca' : '#e5e7eb'}`,
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-            marginBottom: '24px'
-          }}>
-            <div style={{
-              fontSize: '32px',
-              animation: ['starting', 'opening'].includes(currentStep) ? 'spin 2s linear infinite' : 'none'
-            }}>
-              {getStepIcon(currentStep)}
-            </div>
-            <div>
-              <div style={{
-                fontSize: '18px',
-                fontWeight: '600',
-                color: currentStep === 'error' ? '#ef4444' : '#111827',
-                marginBottom: '4px'
-              }}>
-                {getStepText(currentStep)}
+          <div className="flex-1 flex flex-col items-center justify-center bg-black text-green-400 font-mono">
+            <div className="flex flex-col items-center space-y-8">
+              {/* 主图标和状态 */}
+              <div className="flex flex-col items-center space-y-4">
+                <Monitor size={80} className="text-green-400" />
+
+                {/* 状态指示 */}
+                {currentStep === 'starting' && (
+                  <div className="text-green-400 font-mono text-sm">
+                    Starting VNC...
+                  </div>
+                )}
+                {currentStep === 'opening' && (
+                  <div className="text-green-400 font-mono text-sm">
+                    Opening connection...
+                  </div>
+                )}
+                {currentStep === 'error' && (
+                  <div className="text-red-400 font-mono text-sm">
+                    Connection failed
+                  </div>
+                )}
               </div>
+
+              {/* 进度动画 */}
+              {['starting', 'opening'].includes(currentStep) && (
+                <div className="flex space-x-1 justify-center font-mono text-green-400">
+                  <span className="animate-pulse" style={{ animationDelay: '0ms' }}>█</span>
+                  <span className="animate-pulse" style={{ animationDelay: '200ms' }}>█</span>
+                  <span className="animate-pulse" style={{ animationDelay: '400ms' }}>█</span>
+                  <span className="animate-pulse" style={{ animationDelay: '600ms' }}>█</span>
+                  <span className="animate-pulse" style={{ animationDelay: '800ms' }}>█</span>
+                </div>
+              )}
+
+              {/* 错误信息 */}
               {error && (
-                <div style={{
-                  fontSize: '14px',
-                  color: '#ef4444'
-                }}>
-                  {error}
+                <div className="text-xs text-red-400 bg-black border border-red-600/50 px-3 py-2 max-w-md font-mono">
+                  ERROR: {error}
                 </div>
               )}
             </div>
@@ -255,33 +169,16 @@ export const VNCPage: React.FC = () => {
 
         {/* VNC iframe - 只在ready状态显示 */}
         {currentStep === 'ready' && streamUrl && (
-          <div style={{
-            flex: 1,
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            border: '1px solid #e5e7eb'
-          }}>
+          <div className="flex-1 bg-black overflow-hidden">
             <iframe
               src={streamUrl}
-              style={{
-                width: '100%',
-                height: '100%',
-                border: 'none'
-              }}
+              className="w-full h-full border-none"
               title={`VNC - ${containerName}`}
             />
           </div>
         )}
       </div>
 
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };

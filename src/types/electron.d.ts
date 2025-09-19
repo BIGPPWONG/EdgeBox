@@ -10,6 +10,7 @@ declare global {
       stopContainer: (name: string) => Promise<{ success: boolean; error?: string }>;
       getContainers: () => Promise<{ success: boolean; containers?: DockerContainer[]; error?: string }>;
       checkImage: (imageName: string) => Promise<{ success: boolean; hasImage?: boolean; error?: string }>;
+      loadBundledImage: () => Promise<{ success: boolean; error?: string }>;
     };
 
     // Settings API
