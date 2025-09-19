@@ -28,6 +28,12 @@ contextBridge.exposeInMainWorld('tcpAPI', {
 contextBridge.exposeInMainWorld('sandboxManagerAPI', {
   getStatus: () => ipcRenderer.invoke('sandbox-manager-get-status'),
   deleteSandbox: (sessionId: string) => ipcRenderer.invoke('sandbox-manager-delete-sandbox', sessionId),
+  startVNC: (containerName: string, options?: { viewOnly?: boolean }) =>
+    ipcRenderer.invoke('sandbox-manager-start-vnc', containerName, options),
+  stopVNC: (containerName: string) =>
+    ipcRenderer.invoke('sandbox-manager-stop-vnc', containerName),
+  getVNCStatus: (containerName: string) =>
+    ipcRenderer.invoke('sandbox-manager-get-vnc-status', containerName),
 });
 
 // Expose TCP Forwarder Direct API to renderer process

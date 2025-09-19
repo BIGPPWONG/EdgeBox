@@ -8,11 +8,19 @@ type SandboxStatusResponse = {
   containerList: DockerContainer[];
 };
 
+type VNCStatus = {
+  isRunning: boolean;
+  streamUrl?: string;
+  error?: string;
+  isLoading?: boolean;
+};
+
 export const MinimalSandboxManager: React.FC = () => {
   const [containers, setContainers] = useState<DockerContainer[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [vncStatuses, setVncStatuses] = useState<Map<string, VNCStatus>>(new Map());
 
   const refreshContainers = async (isManual = false) => {
     if (isManual) {
@@ -62,7 +70,7 @@ export const MinimalSandboxManager: React.FC = () => {
           });
 
           if (session) {
-            const deleteResult = await (window as any).sandboxManagerAPI.deleteSandbox(session.sessionId);
+            await (window as any).sandboxManagerAPI.deleteSandbox(session.sessionId);
             await refreshContainers();
             console.log(`Stopped container: ${containerName}`);
           } else {
@@ -76,6 +84,70 @@ export const MinimalSandboxManager: React.FC = () => {
         alert(`Failed to stop container: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
+  };
+
+  const handleStartVNC = async (containerName: string) => {
+    const currentStatus = vncStatuses.get(containerName) || { isRunning: false };
+    setVncStatuses(prev => new Map(prev.set(containerName, {
+      ...currentStatus,
+      isLoading: true,
+      error: undefined
+    })));
+
+    try {
+      const result = await (window as any).sandboxManagerAPI.startVNC(containerName, { viewOnly: false });
+
+      if (result.success) {
+        setVncStatuses(prev => new Map(prev.set(containerName, {
+          isRunning: result.result.isRunning,
+          streamUrl: result.result.streamUrl,
+          isLoading: false
+        })));
+      } else {
+        throw new Error(result.error || 'Failed to start VNC');
+      }
+    } catch (error) {
+      setVncStatuses(prev => new Map(prev.set(containerName, {
+        isRunning: false,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })));
+      console.error('Failed to start VNC:', error);
+    }
+  };
+
+  const handleStopVNC = async (containerName: string) => {
+    const currentStatus = vncStatuses.get(containerName) || { isRunning: false };
+    setVncStatuses(prev => new Map(prev.set(containerName, {
+      ...currentStatus,
+      isLoading: true,
+      error: undefined
+    })));
+
+    try {
+      const result = await (window as any).sandboxManagerAPI.stopVNC(containerName);
+
+      if (result.success) {
+        setVncStatuses(prev => new Map(prev.set(containerName, {
+          isRunning: false,
+          streamUrl: undefined,
+          isLoading: false
+        })));
+      } else {
+        throw new Error(result.error || 'Failed to stop VNC');
+      }
+    } catch (error) {
+      setVncStatuses(prev => new Map(prev.set(containerName, {
+        isRunning: false,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })));
+      console.error('Failed to stop VNC:', error);
+    }
+  };
+
+  const openVNCViewer = (url: string) => {
+    window.open(url, '_blank', 'width=1024,height=768');
   };
 
   return (
@@ -200,20 +272,85 @@ export const MinimalSandboxManager: React.FC = () => {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleStopContainer(container.name)}
-                  style={{
-                    padding: '6px 12px',
-                    backgroundColor: '#ef4444',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  Stop
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {/* VNC Controls */}
+                  {container.status === 'running' && (() => {
+                    const vncStatus = vncStatuses.get(container.name);
+                    const isVncLoading = vncStatus?.isLoading || false;
+                    const isVncRunning = vncStatus?.isRunning || false;
+                    const vncError = vncStatus?.error;
+
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {vncError && (
+                          <div style={{
+                            fontSize: '12px',
+                            color: '#ef4444',
+                            padding: '2px 6px',
+                            backgroundColor: '#fef2f2',
+                            borderRadius: '4px',
+                            border: '1px solid #fecaca',
+                            maxWidth: '200px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {vncError}
+                          </div>
+                        )}
+
+                        {isVncRunning && vncStatus?.streamUrl && (
+                          <button
+                            onClick={() => openVNCViewer(vncStatus.streamUrl!)}
+                            style={{
+                              padding: '4px 8px',
+                              backgroundColor: '#10b981',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '12px'
+                            }}
+                          >
+                            📺 Open VNC
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => isVncRunning ? handleStopVNC(container.name) : handleStartVNC(container.name)}
+                          disabled={isVncLoading}
+                          style={{
+                            padding: '4px 8px',
+                            backgroundColor: isVncLoading ? '#9ca3af' : isVncRunning ? '#ef4444' : '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: isVncLoading ? 'not-allowed' : 'pointer',
+                            fontSize: '12px',
+                            minWidth: '70px'
+                          }}
+                        >
+                          {isVncLoading ? '...' : isVncRunning ? 'Stop VNC' : 'Start VNC'}
+                        </button>
+                      </div>
+                    );
+                  })()}
+
+                  <button
+                    onClick={() => handleStopContainer(container.name)}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    Stop
+                  </button>
+                </div>
               </div>
             ))}
           </div>

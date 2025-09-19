@@ -113,17 +113,17 @@ export const Settings: React.FC = () => {
           />
         </div>
 
-        {/* Auto Start MCP */}
+        {/* Enable GUI Tools */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">Auto Start MCP Server</label>
+          <label className="text-sm font-medium">Enable GUI Tools</label>
           <div className="flex items-center space-x-2">
             <input
               type="checkbox"
-              checked={settings.autoStartMcp}
-              onChange={(e) => handleSave({ autoStartMcp: e.target.checked })}
+              checked={settings.enableGUITools}
+              onChange={(e) => handleSave({ enableGUITools: e.target.checked })}
               className="rounded border-gray-300"
             />
-            <span className="text-sm text-gray-600">Start MCP server automatically</span>
+            <span className="text-sm text-gray-600">Enable GUI tools</span>
           </div>
         </div>
       </div>

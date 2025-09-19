@@ -121,6 +121,17 @@ export class SandboxManager {
     return this.dockerManager.getContainer(sandboxId);
   }
 
+  getSessionIdByContainerName(containerName: string): string | null {
+    // Find session by container name
+    for (const [sessionId, session] of this.sessions) {
+      const container = this.dockerManager.getContainer(session.sandboxId);
+      if (container && container.name === containerName) {
+        return sessionId;
+      }
+    }
+    return null;
+  }
+
   async createSandbox(
     name: string,
     dockerImage: string,

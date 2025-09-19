@@ -5,12 +5,21 @@ import { Sandbox } from '@e2b/code-interpreter';
 import { TcpForwarder } from '../tcp-forwarder';
 import { DockerManager } from '../docker-manager';
 import { SandboxManager } from '../sandbox-manager';
+import { DesktopController } from './DesktopController';
 
 // Settings manager will be injected from main process
 let settingsManager: any = null;
 
 export function setSettingsManager(manager: any) {
-  settingsManager = manager;
+    settingsManager = manager;
+}
+
+// Global setting to control GUI tools loading
+function isGUIToolsEnabled(): boolean {
+    if (!settingsManager) {
+        return false; // Default to disabled if no settings manager
+    }
+    return settingsManager.get('enableGUITools', false);
 }
 
 // Create a global sandbox manager instance for main process
@@ -126,6 +135,11 @@ async function ensureSandbox(sessionId?: string | unknown) {
             'x-session-id': sessionIdStr, // 用于envd 分流
         },
     });
+}
+
+async function ensureDesktopController(sessionId?: string | unknown): Promise<DesktopController> {
+    const sandbox = await ensureSandbox(sessionId);
+    return new DesktopController(sandbox);
 }
 
 // Code execution tools (stateless - each execution is independent)
@@ -256,6 +270,7 @@ server.addTool({
             onStderr: (data) => {
                 error += data;
             },
+            timeoutMs: args.timeout || 0, // 0 means no timeout
         });
 
         // Wait for some output or timeout
@@ -352,6 +367,241 @@ server.addTool({
         });
     },
 });
+
+// Desktop GUI tools (only loaded if enabled in settings)
+if (isGUIToolsEnabled()) {
+
+    // Mouse Controls
+    server.addTool({
+        name: "desktop_mouse_click",
+        description: "Perform mouse click at current position or specified coordinates",
+        parameters: z.object({
+            button: z.enum(['left', 'right', 'middle']).optional().describe("Mouse button (default: left)"),
+            x: z.number().optional().describe("X coordinate"),
+            y: z.number().optional().describe("Y coordinate"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            await desktop.mouseClick(args.button, args.x, args.y);
+            return "Mouse click performed";
+        },
+    });
+
+    server.addTool({
+        name: "desktop_mouse_double_click",
+        description: "Perform mouse double click at current position or specified coordinates",
+        parameters: z.object({
+            x: z.number().optional().describe("X coordinate"),
+            y: z.number().optional().describe("Y coordinate"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            await desktop.mouseDoubleClick(args.x, args.y);
+            return "Mouse double click performed";
+        },
+    });
+
+    server.addTool({
+        name: "desktop_mouse_move",
+        description: "Move mouse to specified coordinates",
+        parameters: z.object({
+            x: z.number().describe("X coordinate"),
+            y: z.number().describe("Y coordinate"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            await desktop.mouseMove(args.x, args.y);
+            return "Mouse moved";
+        },
+    });
+
+    server.addTool({
+        name: "desktop_mouse_scroll",
+        description: "Perform mouse scroll action",
+        parameters: z.object({
+            direction: z.enum(['up', 'down']).describe("Scroll direction"),
+            amount: z.number().optional().describe("Scroll amount (default: 1)"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            await desktop.mouseScroll(args.direction, args.amount);
+            return "Mouse scroll performed";
+        },
+    });
+
+    server.addTool({
+        name: "desktop_mouse_drag",
+        description: "Perform mouse drag from one position to another",
+        parameters: z.object({
+            fromX: z.number().describe("Starting X coordinate"),
+            fromY: z.number().describe("Starting Y coordinate"),
+            toX: z.number().describe("Ending X coordinate"),
+            toY: z.number().describe("Ending Y coordinate"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            await desktop.mouseDrag(args.fromX, args.fromY, args.toX, args.toY);
+            return "Mouse drag performed";
+        },
+    });
+
+    // Keyboard Controls
+    server.addTool({
+        name: "desktop_keyboard_type",
+        description: "Type text using keyboard input with automatic clipboard handling for non-ASCII characters",
+        parameters: z.object({
+            text: z.string().describe("Text to type"),
+            delay: z.number().optional().describe("Typing delay in milliseconds (1-25, default: 12)"),
+            useClipboard: z.boolean().optional().describe("Force clipboard method (default: false)"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            await desktop.keyboardType(args.text, {
+                delay: args.delay,
+                useClipboard: args.useClipboard
+            });
+            return "Text typed";
+        },
+    });
+
+    server.addTool({
+        name: "desktop_keyboard_press",
+        description: "Press a specific key",
+        parameters: z.object({
+            key: z.string().describe("Key to press (e.g., 'Return', 'Escape', 'Tab', 'space')"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            await desktop.keyboardPress(args.key);
+            return "Key pressed";
+        },
+    });
+
+    server.addTool({
+        name: "desktop_keyboard_combo",
+        description: "Press key combination/shortcut",
+        parameters: z.object({
+            keys: z.array(z.string()).describe("Array of keys for combination (e.g., ['ctrl', 'c'])"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            await desktop.keyboardCombo(args.keys);
+            return "Key combination pressed";
+        },
+    });
+
+    // Window Management
+    server.addTool({
+        name: "desktop_get_windows",
+        description: "Get list of all windows with their class names, titles, and IDs",
+        parameters: z.object({
+            includeMinimized: z.boolean().optional().describe("Include minimized windows (default: false)"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            const windows = await desktop.getAllWindowsWithClass(args.includeMinimized);
+            return JSON.stringify(windows);
+        },
+    });
+
+    server.addTool({
+        name: "desktop_switch_window",
+        description: "Switch to and focus a specific window by its ID",
+        parameters: z.object({
+            windowId: z.string().describe("Window ID to switch to"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            const success = await desktop.switchToWindow(args.windowId);
+            return JSON.stringify({ success });
+        },
+    });
+
+    server.addTool({
+        name: "desktop_maximize_window",
+        description: "Maximize a specific window",
+        parameters: z.object({
+            windowId: z.string().describe("Window ID to maximize"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            const success = await desktop.maximizeWindow(args.windowId);
+            return JSON.stringify({ success });
+        },
+    });
+
+    server.addTool({
+        name: "desktop_minimize_window",
+        description: "Minimize a specific window",
+        parameters: z.object({
+            windowId: z.string().describe("Window ID to minimize"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            const success = await desktop.minimizeWindow(args.windowId);
+            return JSON.stringify({ success });
+        },
+    });
+
+    server.addTool({
+        name: "desktop_resize_window",
+        description: "Resize a specific window to given dimensions",
+        parameters: z.object({
+            windowId: z.string().describe("Window ID to resize"),
+            width: z.number().describe("New width in pixels"),
+            height: z.number().describe("New height in pixels"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            const success = await desktop.resizeWindow(args.windowId, args.width, args.height);
+            return JSON.stringify({ success });
+        },
+    });
+
+    // Screenshot and Application Control
+    server.addTool({
+        name: "desktop_screenshot",
+        description: "Take a screenshot of the desktop",
+        parameters: z.object({}),
+        execute: async (_, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            const imageData = await desktop.takeScreenshot();
+            // Convert Uint8Array to base64 for JSON serialization
+            const base64 = Buffer.from(imageData).toString('base64');
+            return JSON.stringify({
+                format: 'png',
+                data: base64,
+                size: imageData.length
+            });
+        },
+    });
+
+    server.addTool({
+        name: "desktop_launch_app",
+        description: "Launch an application by its name",
+        parameters: z.object({
+            appName: z.string().describe("Application name to launch"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            await desktop.launchApplication(args.appName);
+            return "Application launched";
+        },
+    });
+
+    server.addTool({
+        name: "desktop_wait",
+        description: "Wait for specified number of seconds",
+        parameters: z.object({
+            seconds: z.number().describe("Number of seconds to wait"),
+        }),
+        execute: async (args, { session }) => {
+            const desktop = await ensureDesktopController(session?.id);
+            await desktop.waitFor(args.seconds);
+            return `Waited for ${args.seconds} seconds`;
+        },
+    });
+}
 
 // Export the server instance without auto-starting
 export default server;

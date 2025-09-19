@@ -7,6 +7,8 @@ import { SandboxManager } from './services/sandbox-manager';
 import { DockerManager } from './services/docker-manager';
 import { SettingsManager } from './services/settings-manager';
 import mcpServer, { getActiveSessions, sandboxManagerForMain, tcpForwarder, setSettingsManager } from './services/mcp/server';
+import { DesktopController } from './services/mcp/DesktopController';
+import { Sandbox } from '@e2b/code-interpreter';
 // Initialize global sandbox manager as early as possible
 // We'll set up the actual instance after creating dockerManager
 
@@ -518,6 +520,95 @@ ipcMain.handle('settings-reset', async () => {
   try {
     settingsManager.resetToDefaults();
     return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Helper function to get sandbox instance for container
+async function getSandboxForContainer(containerName: string): Promise<Sandbox | null> {
+  try {
+    const sessionId = sandboxManagerForMain.getSessionIdByContainerName(containerName);
+    if (!sessionId) {
+      throw new Error(`No session found for container: ${containerName}`);
+    }
+
+    const container = sandboxManagerForMain.getContainerForSession(sessionId);
+    if (!container) {
+      throw new Error(`No container found for session: ${sessionId}`);
+    }
+
+    // Create Sandbox instance using session-specific domain for TCP forwarding
+    const sessionDomain = tcpForwarder.getSessionDomain(sessionId);
+    return await Sandbox.create({
+      domain: sessionDomain,
+      debug: true,
+      headers: {
+        'x-session-id': sessionId,
+      },
+    });
+  } catch (error) {
+    console.error(`Failed to get sandbox for container ${containerName}:`, error);
+    return null;
+  }
+}
+
+// VNC IPC handlers
+ipcMain.handle('sandbox-manager-start-vnc', async (_, containerName: string, options: { viewOnly?: boolean } = {}) => {
+  try {
+    const sandbox = await getSandboxForContainer(containerName);
+    if (!sandbox) {
+      return { success: false, error: `Failed to get sandbox for container: ${containerName}` };
+    }
+
+    // Get container info to find the mapped port for 6080
+    const containers = sandboxManagerForMain.getAllContainers();
+    const container = containers.find(c => c.name === containerName);
+
+    const desktop = new DesktopController(sandbox);
+    const result = await desktop.startVNCStream({
+      viewOnly: options.viewOnly || false
+    });
+
+    // Replace the port in streamUrl with the mapped host port
+    if (result.isRunning && result.streamUrl && container && container.ports[6080]) {
+      const mappedPort = container.ports[6080];
+      result.streamUrl = result.streamUrl.replace(':6080', `:${mappedPort}`);
+    }
+
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('sandbox-manager-stop-vnc', async (_, containerName: string) => {
+  try {
+    const sandbox = await getSandboxForContainer(containerName);
+    if (!sandbox) {
+      return { success: false, error: `Failed to get sandbox for container: ${containerName}` };
+    }
+
+    const desktop = new DesktopController(sandbox);
+    await desktop.stopVNCStream();
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('sandbox-manager-get-vnc-status', async (_, containerName: string) => {
+  try {
+    // For now, we'll return a basic status since we don't have a direct way to check VNC status
+    // This could be enhanced by storing VNC states in memory or checking process status
+    return {
+      success: true,
+      result: {
+        isRunning: false, // Default to false since we can't easily check
+        streamUrl: undefined
+      }
+    };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }

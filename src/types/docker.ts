@@ -42,6 +42,9 @@ declare global {
     sandboxManagerAPI: {
       getStatus: () => Promise<{ success: boolean; status?: { activeSessions: number; sessions: any[]; containers: number; containerList: DockerContainer[] }; error?: string }>;
       deleteSandbox: (sessionId: string) => Promise<{ success: boolean; error?: string }>;
+      startVNC: (containerName: string, options?: { viewOnly?: boolean }) => Promise<{ success: boolean; result?: { isRunning: boolean; streamUrl: string; windowId: string }; error?: string }>;
+      stopVNC: (containerName: string) => Promise<{ success: boolean; error?: string }>;
+      getVNCStatus: (containerName: string) => Promise<{ success: boolean; result?: { isRunning: boolean; streamUrl?: string }; error?: string }>;
     };
     tcpForwarderAPI: {
       getStatus: () => Promise<{ success: boolean; areRunning?: boolean; status?: { port: number; isRunning: boolean }[]; error?: string }>;
