@@ -1,7 +1,7 @@
 import './index.css';
 import { createRoot } from 'react-dom/client';
 import React from 'react';
-import { App } from './components/App';
+import { AppRouter } from './components/AppRouter';
 
 console.log('Renderer script loaded');
 
@@ -20,7 +20,7 @@ try {
   const root = createRoot(rootElement);
   console.log('React root created');
   
-  root.render(React.createElement(App));
+  root.render(React.createElement(AppRouter));
   console.log('React app rendered');
 } catch (error) {
   console.error('Error rendering React app:', error);

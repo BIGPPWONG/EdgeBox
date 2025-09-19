@@ -50,6 +50,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   unmaximize: () => ipcRenderer.invoke('window-unmaximize'),
   close: () => ipcRenderer.invoke('window-close'),
   isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  createChildWindow: (options: {
+    route: string;
+    title?: string;
+    width?: number;
+    height?: number;
+  }) => ipcRenderer.invoke('create-child-window', options),
 });
 
 // Expose Settings API to renderer process

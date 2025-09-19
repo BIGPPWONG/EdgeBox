@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
-import path from 'node:path';
+import * as nodePath from 'node:path';
 import started from 'electron-squirrel-startup';
 import { spawn, ChildProcess } from 'child_process';
 import { DEFAULT_CONTAINER_PORTS } from './constants/ports';
@@ -17,33 +17,47 @@ if (started) {
   app.quit();
 }
 
-const createWindow = () => {
+const createWindow = (routePath?: string) => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    title: 'E2B Desktop',
-    icon: process.platform === 'darwin' ? undefined : path.join(__dirname, '../assets/icon.png'),
+    width: routePath && routePath.startsWith('/vnc/') ? 1200 : 1200,
+    height: routePath && routePath.startsWith('/vnc/') ? 800 : 800,
+    transparent: true,
+    frame: false,
+    title: routePath && routePath.startsWith('/vnc/') ? `VNC - ${routePath.split('/vnc/')[1]}` : 'E2B Desktop',
+    icon: process.platform === 'darwin' ? undefined : nodePath.join(__dirname, '../assets/icon.png'),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     vibrancy: process.platform === 'darwin' ? 'under-window' : undefined,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: nodePath.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
     },
   });
 
   // and load the index.html of the app.
+  const baseUrl = MAIN_WINDOW_VITE_DEV_SERVER_URL ||
+    `file://${nodePath.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)}`;
+
+  const targetUrl = routePath ? `${baseUrl}#${routePath}` : baseUrl;
+
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    mainWindow.loadURL(targetUrl);
   } else {
     mainWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
+      nodePath.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
+      { hash: routePath || '' }
     );
   }
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // Open the DevTools for development
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.webContents.openDevTools();
+  }
+
+  // 移除window.open拦截，改用IPC方式
+
+  return mainWindow;
 };
 
 // This method will be called when Electron has finished
@@ -336,7 +350,7 @@ const mcpServerManager = new MCPServerManager();
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
-app.on('ready', createWindow);
+app.on('ready', () => createWindow());
 
 // MCP Server IPC handlers
 ipcMain.handle('mcp-get-status', async () => {
@@ -495,6 +509,56 @@ ipcMain.handle('window-close', () => {
 ipcMain.handle('window-is-maximized', () => {
   const win = BrowserWindow.getFocusedWindow();
   return win ? win.isMaximized() : false;
+});
+
+// 创建子窗口的IPC handler
+ipcMain.handle('create-child-window', async (_, options: {
+  route: string;
+  title?: string;
+  width?: number;
+  height?: number;
+}) => {
+  try {
+    const { route, title, width = 1200, height = 800 } = options;
+
+    const childWindow = new BrowserWindow({
+      width,
+      height,
+      title: title || 'E2B Desktop',
+      icon: process.platform === 'darwin' ? undefined : nodePath.join(__dirname, '../assets/icon.png'),
+      titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+      vibrancy: process.platform === 'darwin' ? 'under-window' : undefined,
+      webPreferences: {
+        preload: nodePath.join(__dirname, 'preload.js'),
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+
+    // 加载指定路由
+    const baseUrl = MAIN_WINDOW_VITE_DEV_SERVER_URL ||
+      `file://${nodePath.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)}`;
+
+    const targetUrl = `${baseUrl}#${route}`;
+
+    if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+      childWindow.loadURL(targetUrl);
+    } else {
+      childWindow.loadFile(
+        nodePath.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
+        { hash: route }
+      );
+    }
+
+    // 开发环境下打开DevTools
+    if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+      childWindow.webContents.openDevTools();
+    }
+
+    return { success: true, windowId: childWindow.id };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
 });
 
 // Settings IPC handlers

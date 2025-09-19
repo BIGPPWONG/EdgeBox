@@ -62,10 +62,12 @@
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.13",
+    "@types/react-router-dom": "^5.3.3",
     "dotenv": "^17.2.2",
     "electron-squirrel-startup": "^1.0.1",
     "http-proxy": "^1.18.1",
     "lucide-react": "^0.544.0",
+    "react-router-dom": "^7.9.1",
     "tw-animate-css": "^1.3.8"
   }
 }

@@ -35,9 +35,9 @@ export const App: React.FC = () => {
   const ActiveComponent = menuItems.find(item => item.id === activeTab)?.component || Dashboard;
 
   return (
-    <div className="h-screen flex bg-slate-100">
+    <div className="h-screen flex bg-transparent">
       {/* 左侧导航菜单 */}
-      <div className="drag-region pt-6 w-64 bg-slate-800 text-white flex flex-col">
+      <div className="drag-region pt-6 w-64 bg-slate-900/80 backdrop-blur-xl border-r border-slate-700/50 text-white flex flex-col shadow-2xl">
         {/* 顶部用户信息 */}
         <div className="p-6">
           <div className="flex items-center space-x-3 mb-6">
@@ -50,8 +50,8 @@ export const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 p-3 bg-slate-700/50 rounded-xl">
-            <div className="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center">
+          <div className="flex items-center space-x-3 p-3 bg-slate-800/60 backdrop-blur-sm rounded-xl border border-slate-600/30">
+            <div className="w-10 h-10 bg-slate-700/80 backdrop-blur-sm rounded-full flex items-center justify-center border border-slate-500/30">
               <User size={16} className="text-slate-200" />
             </div>
             <div>
@@ -68,10 +68,10 @@ export const App: React.FC = () => {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={`
-                no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-left transition-all duration-200
+                no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-left transition-all duration-100
                 ${activeTab === item.id
-                  ? 'bg-white text-slate-800 shadow-lg'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                  ? 'bg-white/95 backdrop-blur-sm text-slate-800 shadow-xl'
+                  : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
                 }
               `}
             >
@@ -82,10 +82,10 @@ export const App: React.FC = () => {
         </nav>
 
         {/* 底部设置区域 */}
-        <div className="p-4 border-t border-slate-700">
+        <div className="p-4 border-t border-slate-600/40">
           <Dialog>
             <DialogTrigger asChild>
-              <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200">
+              <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all duration-100">
                 <Settings size={18} />
                 <span>Settings</span>
               </button>
@@ -102,7 +102,7 @@ export const App: React.FC = () => {
           </Dialog>
           <Dialog>
             <DialogTrigger asChild>
-              <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200 mt-2">
+              <button className="no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all duration-100 mt-2">
                 <Info size={18} />
                 <span>About</span>
               </button>
