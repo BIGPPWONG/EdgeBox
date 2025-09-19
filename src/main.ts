@@ -6,9 +6,10 @@ import { DEFAULT_CONTAINER_PORTS } from './constants/ports';
 import { SandboxManager } from './services/sandbox-manager';
 import { DockerManager } from './services/docker-manager';
 import { SettingsManager } from './services/settings-manager';
-import mcpServer, { getActiveSessions, sandboxManagerForMain, tcpForwarder, setSettingsManager } from './services/mcp/server';
+import { createServer, getActiveSessions, sandboxManagerForMain, tcpForwarder, setSettingsManager } from './services/mcp/server';
 import { DesktopController } from './services/mcp/DesktopController';
 import { Sandbox } from '@e2b/code-interpreter';
+import { APP_DISPLAY_NAME } from './constants/app-name';
 // Initialize global sandbox manager as early as possible
 // We'll set up the actual instance after creating dockerManager
 
@@ -24,7 +25,7 @@ const createWindow = (routePath?: string) => {
     height: routePath && routePath.startsWith('/vnc/') ? 800 : 800,
     transparent: true,
     frame: false,
-    title: routePath && routePath.startsWith('/vnc/') ? `VNC - ${routePath.split('/vnc/')[1]}` : 'E2B Desktop',
+    title: routePath && routePath.startsWith('/vnc/') ? `VNC - ${routePath.split('/vnc/')[1]}` : APP_DISPLAY_NAME,
     icon: process.platform === 'darwin' ? undefined : nodePath.join(__dirname, '../assets/icon.png'),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     vibrancy: process.platform === 'darwin' ? 'under-window' : undefined,
@@ -78,18 +79,30 @@ app.on('window-all-closed', () => {
 const cleanupContainers = async () => {
   try {
     console.log('Cleaning up containers...');
-    const containers = dockerManager.getAllContainers();
 
-    for (const container of containers) {
-      try {
-        await dockerManager.stopContainer(container.id);
-        console.log(`Stopped container: ${container.id}`);
-      } catch (error) {
-        console.error(`Failed to stop container ${container.id}:`, error);
-      }
+    // Send notification to renderer process to show loading
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('cleanup-started');
+    }
+
+    await dockerManager.cleanup();
+
+    console.log('Container cleanup completed');
+
+    // Notify completion
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('cleanup-completed');
     }
   } catch (error) {
     console.error('Error during container cleanup:', error);
+
+    // Notify error
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      mainWindow.webContents.send('cleanup-error', errorMessage);
+    }
   }
 };
 
@@ -125,6 +138,9 @@ app.on('activate', () => {
 const dockerManager = new DockerManager();
 console.log('Creating SandboxManager with DockerManager');
 
+
+//  Create MCP Server
+const mcpServer = createServer()
 // Create SettingsManager instance for main process
 const settingsManager = new SettingsManager();
 
@@ -297,7 +313,7 @@ class MCPServerManager {
   async restartServer(): Promise<MCPServerStatus> {
     try {
       this.status.status = 'starting';
-      console.log('Restarting MCP Server...');
+      console.log('Restarting MCP Server with fresh configuration...');
 
       // Stop the current server if running
       try {
@@ -310,13 +326,21 @@ class MCPServerManager {
       const settings = settingsManager.getSettings();
       const mcpPort = settings.mcpPort || 8888;
 
-      // Start the server with fresh configuration
-      await mcpServer.start({
+      // Create a new server instance with current settings (this will re-evaluate GUI tools)
+      const newServer = createServer();
+
+      // Start the new server with fresh configuration
+      await newServer.start({
         transportType: "httpStream",
         httpStream: {
           port: mcpPort,
         },
       });
+
+      // Replace the old server reference with the new one
+      // Note: This is a bit hacky, but necessary since we can't easily replace the exported server
+      Object.setPrototypeOf(mcpServer, Object.getPrototypeOf(newServer));
+      Object.assign(mcpServer, newServer);
 
       this.status = {
         status: 'running',
@@ -325,7 +349,7 @@ class MCPServerManager {
         startTime: new Date(),
       };
 
-      console.log(`MCP Server restarted successfully on port ${mcpPort}`);
+      console.log(`MCP Server restarted successfully on port ${mcpPort} with updated configuration`);
       return this.status;
     } catch (error) {
       console.error('Failed to restart MCP server:', error);
@@ -533,7 +557,7 @@ ipcMain.handle('create-child-window', async (_, options: {
     const childWindow = new BrowserWindow({
       width,
       height,
-      title: title || 'E2B Desktop',
+      title: title || APP_DISPLAY_NAME,
       icon: process.platform === 'darwin' ? undefined : nodePath.join(__dirname, '../assets/icon.png'),
       titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
       vibrancy: process.platform === 'darwin' ? 'under-window' : undefined,
@@ -671,7 +695,7 @@ ipcMain.handle('sandbox-manager-stop-vnc', async (_, containerName: string) => {
   }
 });
 
-ipcMain.handle('sandbox-manager-get-vnc-status', async (_, containerName: string) => {
+ipcMain.handle('sandbox-manager-get-vnc-status', async (_, _containerName: string) => {
   try {
     // For now, we'll return a basic status since we don't have a direct way to check VNC status
     // This could be enhanced by storing VNC states in memory or checking process status

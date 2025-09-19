@@ -104,7 +104,7 @@ export const MinimalSandboxManager: React.FC = () => {
   return (
     <div className="flex flex-col gap-6">
       {/* Running Sandboxes List */}
-      <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200/50">
+      <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/50">
         <div className="px-6 py-4 border-b border-slate-200/60 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-semibold text-slate-800 mb-1">

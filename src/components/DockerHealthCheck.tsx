@@ -60,10 +60,10 @@ export const DockerHealthCheck: React.FC = () => {
         // Reload image status after loading
         await checkDockerImage(defaultImage);
       } else {
-        setLoadError(result.error || '加载镜像失败');
+        setLoadError(result.error || 'Failed to load image');
       }
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : '未知错误');
+      setLoadError(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setIsLoadingImage(false);
     }
@@ -227,10 +227,10 @@ export const DockerHealthCheck: React.FC = () => {
     <Dialog open={isDockerRunning === true && hasDefaultImage === false} onOpenChange={() => {}}>
       <DialogContent showCloseButton={false} className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>需要加载Docker镜像</DialogTitle>
+          <DialogTitle>Load Docker Image</DialogTitle>
           <DialogDescription>
-            系统检测到Docker正在运行，但默认镜像 <strong>{defaultImage}</strong> 不可用。
-            需要从bundle文件加载镜像才能创建sandbox。
+            System detected that Docker is running, but the default image <strong>{defaultImage}</strong> is not available.
+            You need to load the image from the bundle file to create sandboxes.
           </DialogDescription>
         </DialogHeader>
 
@@ -247,13 +247,13 @@ export const DockerHealthCheck: React.FC = () => {
               disabled={isLoadingImage}
               className="min-w-[120px]"
             >
-              {isLoadingImage ? '加载中...' : '加载镜像'}
+              {isLoadingImage ? 'Loading...' : 'Load Image'}
             </Button>
           </div>
 
           {isLoadingImage && (
             <div className="text-xs text-gray-500 text-center">
-              正在从bundle文件加载镜像，请稍候...
+              Loading image from bundle file, please wait...
             </div>
           )}
         </div>

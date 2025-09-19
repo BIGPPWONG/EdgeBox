@@ -39,26 +39,32 @@ export class DockerManager {
   }
 
   private async checkPortConnectivity(port: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const net = require('net');
-      const socket = new net.Socket();
-
-      const timeout = setTimeout(() => {
-        socket.destroy();
-        resolve(false);
-      }, 3000);
-
-      socket.connect(port, 'localhost', () => {
-        clearTimeout(timeout);
-        socket.destroy();
-        resolve(true);
+    try {
+      const response = await fetch(`http://localhost:${port}/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': '*/*',
+          'accept-language': '*',
+          'sec-fetch-mode': 'cors',
+          'user-agent': 'node',
+          'accept-encoding': 'gzip, deflate',
+          'connection': 'keep-alive'
+        },
+        body: JSON.stringify({
+          code: "print('hello world')",
+          language: "python",
+          env_vars: {
+            "x-session-id": "default_session"
+          }
+        }),
+        signal: AbortSignal.timeout(3000)
       });
 
-      socket.on('error', () => {
-        clearTimeout(timeout);
-        resolve(false);
-      });
-    });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
   }
 
   async pingDocker(): Promise<boolean> {
@@ -111,7 +117,7 @@ export class DockerManager {
       this.containers.set(config.id, container);
 
       // 探测 49999 端口确认容器启动成功
-      const isReady = await this.waitForContainerReady(ports[49983], 30000);
+      const isReady = await this.waitForContainerReady(ports[49999], 30000);
 
       if (isReady) {
         container.status = 'running';
@@ -177,17 +183,35 @@ export class DockerManager {
   }
 
   async cleanup(): Promise<void> {
-    const containerIds = Array.from(this.containers.keys());
+    try {
+      // Get all running containers from Docker
+      const runningContainers = await this.docker.listContainers();
 
-    for (const containerId of containerIds) {
-      try {
-        await this.stopContainer(containerId);
-      } catch (error) {
-        console.error(`Failed to stop container ${containerId}:`, error);
+      // Filter only containers created by this project (starting with "container_")
+      const projectContainers = runningContainers.filter(container => {
+        const containerName = container.Names[0].replace('/', '');
+        return containerName.startsWith('container_');
+      });
+
+      console.log(`Cleaning up ${projectContainers.length} containers...`);
+
+      // Stop project containers
+      for (const container of projectContainers) {
+        try {
+          const containerName = container.Names[0].replace('/', '');
+          const dockerContainer = this.docker.getContainer(containerName);
+          await dockerContainer.stop();
+          console.log(`Stopped container: ${containerName}`);
+        } catch (error) {
+          console.error(`Failed to stop container ${container.Names[0]}:`, error);
+        }
       }
-    }
 
-    this.containers.clear();
+      // Also clean up our internal tracking
+      this.containers.clear();
+    } catch (error) {
+      console.error('Failed to cleanup containers:', error);
+    }
   }
 
   // Additional utility methods for direct use

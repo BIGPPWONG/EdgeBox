@@ -91,7 +91,7 @@ export const Settings: React.FC = () => {
         </div>
 
         {/* Default Docker Image */}
-        <div className="space-y-2">
+        {/* <div className="space-y-2">
           <label className="text-sm font-medium">Default Docker Image</label>
           <Input
             value={settings.defaultDockerImage}
@@ -99,7 +99,7 @@ export const Settings: React.FC = () => {
             onBlur={(e) => handleSave({ defaultDockerImage: e.target.value })}
             placeholder="ubuntu:latest"
           />
-        </div>
+        </div> */}
 
         {/* MCP Port */}
         <div className="space-y-2">
@@ -113,20 +113,7 @@ export const Settings: React.FC = () => {
           />
         </div>
 
-        {/* Enable GUI Tools */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Enable GUI Tools</label>
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={settings.enableGUITools}
-              onChange={(e) => handleSave({ enableGUITools: e.target.checked })}
-              className="rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-600">Enable GUI tools</span>
-          </div>
-        </div>
-      </div>
+              </div>
 
       <div className="flex space-x-3 pt-4 border-t">
         <Button

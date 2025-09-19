@@ -1,8 +1,8 @@
 {
-  "name": "my-app",
-  "productName": "my-app",
+  "name": "EdgeBox",
+  "productName": "EdgeBox",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "Local LLM Agent Sandbox",
   "main": ".vite/build/main.js",
   "scripts": {
     "start": "electron-forge start",
@@ -61,6 +61,7 @@
     "@radix-ui/react-progress": "^1.1.7",
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
     "@types/dockerode": "^3.3.44",
     "@types/react-router-dom": "^5.3.3",

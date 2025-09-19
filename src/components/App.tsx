@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dashboard } from './Dashboard';
 import { MinimalSandboxManager } from './MinimalSandboxManager';
 import { TcpForwarderManager } from './TcpForwarderManager';
@@ -12,7 +12,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from './ui/dialog';
-import { Home, Package, Globe, Settings, Info, User } from 'lucide-react';
+import { Home, Package, Globe, Settings, Info, User, Loader2 } from 'lucide-react';
+import { APP_DESCRIPTION, APP_DISPLAY_NAME } from '@/constants/app-name';
 
 type TabType = 'dashboard' | 'containers' | 'mcp' | 'network';
 
@@ -31,22 +32,90 @@ const menuItems: MenuItem[] = [
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [showCleanupDialog, setShowCleanupDialog] = useState(false);
+  const [cleanupStatus, setCleanupStatus] = useState<'cleaning' | 'completed' | 'error'>('cleaning');
+  const [cleanupError, setCleanupError] = useState<string>('');
+
+  // Listen for cleanup events from main process
+  useEffect(() => {
+    const handleCleanupStarted = () => {
+      setShowCleanupDialog(true);
+      setCleanupStatus('cleaning');
+    };
+
+    const handleCleanupCompleted = () => {
+      setCleanupStatus('completed');
+      setTimeout(() => {
+        setShowCleanupDialog(false);
+      }, 2000);
+    };
+
+    const handleCleanupError = (errorMessage: string) => {
+      setCleanupStatus('error');
+      setCleanupError(errorMessage);
+    };
+
+    // Check if window.electronAPI exists (defined in preload)
+    if (typeof window !== 'undefined' && (window as any).electronAPI) {
+      const electronAPI = (window as any).electronAPI;
+      electronAPI.onCleanupStarted?.(handleCleanupStarted);
+      electronAPI.onCleanupCompleted?.(handleCleanupCompleted);
+      electronAPI.onCleanupError?.(handleCleanupError);
+    }
+  }, []);
 
   const ActiveComponent = menuItems.find(item => item.id === activeTab)?.component || Dashboard;
 
   return (
     <div className="h-screen flex bg-transparent">
+      {/* 清理对话框 */}
+      <Dialog
+        open={showCleanupDialog}
+        onOpenChange={cleanupStatus === 'cleaning' ? undefined : setShowCleanupDialog}
+      >
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={cleanupStatus !== 'cleaning'}
+          onPointerDownOutside={cleanupStatus === 'cleaning' ? (e) => e.preventDefault() : undefined}
+          onEscapeKeyDown={cleanupStatus === 'cleaning' ? (e) => e.preventDefault() : undefined}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {cleanupStatus === 'cleaning' && <Loader2 className="h-4 w-4 animate-spin" />}
+              {cleanupStatus === 'completed' && <div className="w-4 h-4 bg-green-500 rounded-full" />}
+              {cleanupStatus === 'error' && <div className="w-4 h-4 bg-red-500 rounded-full" />}
+              Container Cleanup
+            </DialogTitle>
+            <DialogDescription>
+              {cleanupStatus === 'cleaning' && 'Please wait while containers are being cleaned up...'}
+              {cleanupStatus === 'completed' && 'All containers have been successfully cleaned up.'}
+              {cleanupStatus === 'error' && `Cleanup failed: ${cleanupError}`}
+            </DialogDescription>
+          </DialogHeader>
+          {cleanupStatus !== 'cleaning' && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowCleanupDialog(false)}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* 左侧导航菜单 */}
       <div className="drag-region pt-6 w-64 bg-slate-900/80 backdrop-blur-xl border-r border-slate-700/50 text-white flex flex-col shadow-2xl">
         {/* 顶部用户信息 */}
         <div className="p-6">
           <div className="flex items-center space-x-3 mb-6">
             <div className="w-12 h-12 bg-gradient-to-br from-lime-400 to-green-500 rounded-2xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">E2B</span>
+              <span className="text-white font-bold text-lg">EB</span>
             </div>
             <div>
-              <div className="font-semibold text-lg">E2B Manager</div>
-              <div className="text-sm text-slate-400">Development</div>
+              <div className="font-semibold text-lg">{APP_DISPLAY_NAME}</div>
+              <div className="text-sm text-slate-400">{APP_DESCRIPTION}</div>
             </div>
           </div>
 
@@ -70,7 +139,7 @@ export const App: React.FC = () => {
               className={`
                 no-drag w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-left transition-all duration-100
                 ${activeTab === item.id
-                  ? 'bg-white/95 backdrop-blur-sm text-slate-800 shadow-xl'
+                  ? 'bg-white/95 backdrop-blur-sm text-slate-800 shadow-sm'
                   : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
                 }
               `}
@@ -109,9 +178,9 @@ export const App: React.FC = () => {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>About E2B Manager</DialogTitle>
+                <DialogTitle>About {APP_DISPLAY_NAME}</DialogTitle>
                 <DialogDescription>
-                  E2B Desktop Application for managing development containers and services.
+                  {APP_DESCRIPTION}
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-4 space-y-3">
@@ -125,7 +194,9 @@ export const App: React.FC = () => {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Built with:</span>
-                  <span className="text-sm text-slate-600">Electron + React</span>
+                  <span className="text-sm text-slate-600">
+                    Electron + React + e2b/code-interpreter
+                  </span>
                 </div>
               </div>
             </DialogContent>
@@ -162,7 +233,7 @@ export const App: React.FC = () => {
         {/* 底部状态栏 */}
         <div className="h-12 bg-white border-t border-slate-200 flex items-center justify-between px-8 text-sm">
           <div className="flex items-center space-x-6">
-            <span className="text-slate-600">E2B Desktop v1.0</span>
+            <span className="text-slate-600">{APP_DISPLAY_NAME} v1.0</span>
           </div>
           <div className="flex items-center space-x-4">
             <Badge variant="outline" className="text-xs">

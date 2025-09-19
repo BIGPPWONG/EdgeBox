@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { Switch } from './ui/switch';
 import { MCPServerStatus } from '../types/docker';
 import { Wrench, Clock, BarChart3, Link, RefreshCw, Radio } from 'lucide-react';
 
@@ -211,6 +212,47 @@ export const MCPServerStatusCard: React.FC = () => {
 
 // MCP Server监听地址配置卡片
 export const MCPServerConfigCard: React.FC = () => {
+  const [enableGUITools, setEnableGUITools] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const result = await window.settingsAPI.getSettings();
+      if (result.success && result.settings) {
+        setEnableGUITools(result.settings.enableGUITools);
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleGUITools = async (enabled: boolean) => {
+    try {
+      const result = await window.settingsAPI.updateSettings({ enableGUITools: enabled });
+      if (result.success) {
+        setEnableGUITools(enabled);
+
+        // Restart MCP server after GUI tools setting change
+        try {
+          const restartResult = await window.mcpAPI.restartServer();
+          if (restartResult.success && restartResult.status) {
+            console.log('MCP server restarted successfully after GUI tools change');
+          }
+        } catch (restartError) {
+          console.error('Failed to restart MCP server after GUI tools change:', restartError);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update GUI tools setting:', error);
+    }
+  };
+
   // const { serverStatus } = useMCPServer();
   const mcpUrl = `http://localhost:8888/mcp`;
 
@@ -243,6 +285,19 @@ export const MCPServerConfigCard: React.FC = () => {
           </div>
           <span className="text-xs font-bold text-blue-600">HTTP Streamable</span>
         </div>
+        <div className="p-1.5 bg-white/60 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Wrench size={12} />
+              <span className="text-xs font-medium">Enable GUI Tools</span>
+            </div>
+            <Switch
+              checked={enableGUITools}
+              onCheckedChange={handleToggleGUITools}
+              disabled={loading}
+            />
+          </div>
+        </div>
 
         <div className="p-1.5 bg-white/60 rounded-lg">
           <div className="flex items-center space-x-2 mb-1">
@@ -251,6 +306,8 @@ export const MCPServerConfigCard: React.FC = () => {
           </div>
           <span className="text-xs font-bold text-green-600 font-mono break-all">{mcpUrl}</span>
         </div>
+
+
       </div>
     </Card>
   );

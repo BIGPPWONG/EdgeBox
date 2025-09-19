@@ -57,6 +57,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
     width?: number;
     height?: number;
   }) => ipcRenderer.invoke('create-child-window', options),
+
+  // Cleanup event listeners
+  onCleanupStarted: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('cleanup-started', handler);
+    return () => ipcRenderer.removeListener('cleanup-started', handler);
+  },
+  onCleanupCompleted: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('cleanup-completed', handler);
+    return () => ipcRenderer.removeListener('cleanup-completed', handler);
+  },
+  onCleanupError: (callback: (error: string) => void) => {
+    const handler = (_: any, error: string) => callback(error);
+    ipcRenderer.on('cleanup-error', handler);
+    return () => ipcRenderer.removeListener('cleanup-error', handler);
+  },
 });
 
 // Expose Settings API to renderer process
