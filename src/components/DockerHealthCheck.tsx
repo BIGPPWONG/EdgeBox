@@ -172,34 +172,26 @@ export const DockerHealthCheck: React.FC = () => {
         )}
 
         {defaultImage && isDockerRunning && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between p-1.5 bg-white/60 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <Container size={12} />
-                <span className="text-xs font-medium">Default Image</span>
-              </div>
-              <span className="text-xs text-slate-600">{defaultImage}</span>
-            </div>
-
+          <div className="mt-1">
             {hasDefaultImage === true ? (
               <div className="flex items-center space-x-2 p-2 bg-green-100 rounded-lg">
                 <CheckCircle size={16} className="text-green-600" />
                 <span className="text-xs text-green-700 font-medium">
-                  Image is available, ready to create sandboxes
+                  Docker image ready - sandboxes available
                 </span>
               </div>
             ) : hasDefaultImage === false ? (
               <div className="flex items-center space-x-2 p-2 bg-orange-100 rounded-lg">
                 <XCircle size={16} className="text-orange-600" />
                 <span className="text-xs text-orange-700 font-medium">
-                  Image not found. Need to pull: {defaultImage}
+                  Docker image required - load needed
                 </span>
               </div>
             ) : (
               <div className="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg">
                 <HelpCircle size={16} className="text-gray-600" />
                 <span className="text-xs text-gray-700 font-medium">
-                  Checking image availability...
+                  Checking Docker image status...
                 </span>
               </div>
             )}
@@ -207,17 +199,17 @@ export const DockerHealthCheck: React.FC = () => {
         )}
       </div>
 
-      <div className="pt-1 flex-shrink-0">
+      <div className="pt-1 flex-shrink-0 flex justify-end">
         <Button
           onClick={checkDockerStatus}
           disabled={isChecking}
-          variant="outline"
+          variant="ghost"
           size="sm"
-          className="w-full"
+          className="h-7 px-2"
         >
           <div className="flex items-center space-x-1">
-            <RefreshCw size={14} className={isChecking ? 'animate-spin' : ''} />
-            <span>{isChecking ? 'Checking...' : 'Refresh Status'}</span>
+            <RefreshCw size={12} className={isChecking ? 'animate-spin' : ''} />
+            <span className="text-xs">{isChecking ? 'Checking...' : 'Refresh'}</span>
           </div>
         </Button>
       </div>

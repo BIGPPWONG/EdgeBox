@@ -179,9 +179,12 @@ export const MCPServerStatusCard: React.FC = () => {
             <span className="text-xs font-bold text-purple-600">{serverStatus.activeSessions}</span>
           </div>
 
-          <div className="mt-2 p-2 bg-blue-100 rounded-lg">
-            <div className="text-base font-bold text-blue-600">:{serverStatus.port}</div>
-            <div className="text-xs text-blue-700">Service Port</div>
+          <div className="mt-2 p-2 bg-white/60 rounded-lg border border-blue-200">
+            <div className="flex items-center space-x-2 mb-1">
+              <Link size={12} />
+              <span className="text-xs font-medium">Port</span>
+            </div>
+            <div className="text-sm font-bold text-blue-600 font-mono">:{serverStatus.port}</div>
           </div>
         </div>
       ) : (
@@ -299,7 +302,7 @@ export const MCPServerConfigCard: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-1.5 bg-white/60 rounded-lg">
+        <div className="p-1.5 bg-white/60 rounded-lg border border-blue-200">
           <div className="flex items-center space-x-2 mb-1">
             <Link size={12} />
             <span className="text-xs font-medium">Server Address</span>

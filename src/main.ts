@@ -140,7 +140,7 @@ console.log('Creating SandboxManager with DockerManager');
 
 
 //  Create MCP Server
-const mcpServer = createServer()
+var mcpServer = createServer()
 // Create SettingsManager instance for main process
 const settingsManager = new SettingsManager();
 
@@ -327,10 +327,10 @@ class MCPServerManager {
       const mcpPort = settings.mcpPort || 8888;
 
       // Create a new server instance with current settings (this will re-evaluate GUI tools)
-      const newServer = createServer();
+      mcpServer = createServer();
 
       // Start the new server with fresh configuration
-      await newServer.start({
+      await mcpServer.start({
         transportType: "httpStream",
         httpStream: {
           port: mcpPort,
@@ -339,8 +339,8 @@ class MCPServerManager {
 
       // Replace the old server reference with the new one
       // Note: This is a bit hacky, but necessary since we can't easily replace the exported server
-      Object.setPrototypeOf(mcpServer, Object.getPrototypeOf(newServer));
-      Object.assign(mcpServer, newServer);
+      // Object.setPrototypeOf(mcpServer, Object.getPrototypeOf(newServer));
+      // Object.assign(mcpServer, newServer);
 
       this.status = {
         status: 'running',
