@@ -205,7 +205,7 @@ export class SandboxManager {
     return true;
   }
 
-  endSession(sessionId: string): void {
+  async endSession(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
@@ -217,14 +217,16 @@ export class SandboxManager {
       .filter(s => s.sandboxId === session.sandboxId);
 
     if (activeSessions.length === 0) {
-      // Schedule sandbox shutdown after grace period
-      setTimeout(() => {
-        const stillActive = Array.from(this.sessions.values())
-          .some(s => s.sandboxId === session.sandboxId);
-        if (!stillActive) {
-          this.stopSandbox(session.sandboxId);
-        }
-      }, 3000); // 3 second grace period
+      // Wait for 3 second grace period, then stop sandbox
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Check if still no active sessions after grace period
+      const stillActive = Array.from(this.sessions.values())
+        .some(s => s.sandboxId === session.sandboxId);
+
+      if (!stillActive) {
+        await this.stopSandbox(session.sandboxId);
+      }
     }
   }
 

@@ -12,6 +12,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from './ui/dialog';
+import { Toaster } from "@/components/ui/sonner"
+
 import { Home, Package, Globe, Settings, Info, User, Loader2 } from 'lucide-react';
 import { APP_DESCRIPTION, APP_DISPLAY_NAME } from '@/constants/app-name';
 
@@ -68,37 +70,58 @@ export const App: React.FC = () => {
 
   return (
     <div className="h-screen flex bg-transparent">
-      {/* 清理对话框 */}
+      {/* 清理对话框 - 与app风格统一 */}
       <Dialog
         open={showCleanupDialog}
         onOpenChange={cleanupStatus === 'cleaning' ? undefined : setShowCleanupDialog}
       >
         <DialogContent
-          className="sm:max-w-md"
+          className="sm:max-w-md bg-slate-900/95 backdrop-blur-xl border border-slate-600/50 shadow-2xl"
           showCloseButton={cleanupStatus !== 'cleaning'}
           onPointerDownOutside={cleanupStatus === 'cleaning' ? (e) => e.preventDefault() : undefined}
           onEscapeKeyDown={cleanupStatus === 'cleaning' ? (e) => e.preventDefault() : undefined}
         >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {cleanupStatus === 'cleaning' && <Loader2 className="h-4 w-4 animate-spin" />}
-              {cleanupStatus === 'completed' && <div className="w-4 h-4 bg-green-500 rounded-full" />}
-              {cleanupStatus === 'error' && <div className="w-4 h-4 bg-red-500 rounded-full" />}
-              Container Cleanup
+          <DialogHeader className="mb-4">
+            <DialogTitle className="flex items-center gap-3 text-white text-lg font-medium">
+              {cleanupStatus === 'cleaning' && (
+                <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+                  <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
+                </div>
+              )}
+              {cleanupStatus === 'completed' && (
+                <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
+                  <div className="w-4 h-4 bg-green-500 rounded-full" />
+                </div>
+              )}
+              {cleanupStatus === 'error' && (
+                <div className="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center">
+                  <div className="w-4 h-4 bg-red-500 rounded-full" />
+                </div>
+              )}
+              <span>Container Cleanup</span>
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-slate-300 text-sm mt-2">
               {cleanupStatus === 'cleaning' && 'Please wait while containers are being cleaned up...'}
               {cleanupStatus === 'completed' && 'All containers have been successfully cleaned up.'}
               {cleanupStatus === 'error' && `Cleanup failed: ${cleanupError}`}
             </DialogDescription>
           </DialogHeader>
+
+          {cleanupStatus === 'cleaning' && (
+            <div className="py-2">
+              <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{ width: '100%' }} />
+              </div>
+            </div>
+          )}
+
           {cleanupStatus !== 'cleaning' && (
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-4 border-t border-slate-700/50">
               <button
                 onClick={() => setShowCleanupDialog(false)}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 transition-all duration-200 font-medium"
               >
-                OK
+                {cleanupStatus === 'error' ? 'Got it' : 'Done'}
               </button>
             </div>
           )}
@@ -243,6 +266,9 @@ export const App: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Toast 通知 */}
+      <Toaster />
     </div>
   );
 };

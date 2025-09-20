@@ -466,8 +466,8 @@ ipcMain.handle('sandbox-manager-get-status', async () => {
 
 ipcMain.handle('sandbox-manager-delete-sandbox', async (_, sessionId: string) => {
   try {
-    const success = sandboxManagerForMain.endSession(sessionId);
-    return { success };
+    await sandboxManagerForMain.endSession(sessionId);
+    return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }

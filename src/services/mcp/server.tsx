@@ -66,12 +66,12 @@ export function createServer(): FastMCP {
 const sessionSandboxMap = new Map<string, string>();
 
 // Export function for manual sandbox cleanup
-export function cleanupSandbox(sessionId: string): boolean {
+export async function cleanupSandbox(sessionId: string): Promise<boolean> {
     const sandboxId = sessionSandboxMap.get(sessionId);
     if (sandboxId) {
         const manager = getSandboxManager();
         if (manager) {
-            manager.endSession(sessionId);
+            await manager.endSession(sessionId);
         }
         sessionSandboxMap.delete(sessionId);
         return true;

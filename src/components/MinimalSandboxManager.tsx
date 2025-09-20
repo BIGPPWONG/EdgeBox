@@ -2,6 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { DockerContainer } from '../types/docker';
 import { Button } from './ui/button';
 import { Trash2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 type SandboxStatusResponse = {
   activeSessions: number;
@@ -54,6 +63,9 @@ export const MinimalSandboxManager: React.FC = () => {
 
   const handleStopContainer = async (containerName: string) => {
     if (confirm(`Stop container "${containerName}"?`)) {
+      // Show loading toast that persists until deletion is complete
+      const loadingToastId = toast.loading(`Deleting sandbox "${containerName}"...`);
+
       try {
         // Find the session for this container and end it
         const result = await (window as any).sandboxManagerAPI.getStatus();
@@ -68,15 +80,22 @@ export const MinimalSandboxManager: React.FC = () => {
             await (window as any).sandboxManagerAPI.deleteSandbox(session.sessionId);
             await refreshContainers();
             console.log(`Stopped container: ${containerName}`);
+
+            // Dismiss loading toast and show success toast
+            toast.dismiss(loadingToastId);
+            toast.success(`Sandbox "${containerName}" deleted successfully`);
           } else {
-            alert('Could not find session for this container');
+            toast.dismiss(loadingToastId);
+            toast.error('Could not find session for this container');
           }
         } else {
-          alert('Failed to get sandbox status');
+          toast.dismiss(loadingToastId);
+          toast.error('Failed to get sandbox status');
         }
       } catch (error) {
         console.error('Failed to stop container:', error);
-        alert(`Failed to stop container: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        toast.dismiss(loadingToastId);
+        toast.error(`Failed to delete sandbox "${containerName}": ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   };
