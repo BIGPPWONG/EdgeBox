@@ -169,7 +169,6 @@ see the [LICENSE](LICENSE) file for details.
 
 - **Issues**: Report bugs and feature requests on [GitHub Issues](https://github.com/BIGPPWONG/edgebox/issues)
 - **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/BIGPPWONG/edgebox/discussions)
-- **Email**: Contact the maintainer at weiwen.wong90@gmail.com
 
 ---
 
