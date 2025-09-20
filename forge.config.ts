@@ -13,13 +13,24 @@ const config: ForgeConfig = {
     extraResource: [
       './sandbox_images'
     ],
+    icon: './assets/icon/icon' // no file extension required
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({}),
+    new MakerSquirrel({
+      setupIcon: './assets/icon/icon.ico'
+    }),
     new MakerZIP({}, ['darwin']),
-    new MakerRpm({}),
-    new MakerDeb({}),
+    new MakerRpm({
+      options: {
+        icon: './assets/icon/icon.png'
+      }
+    }),
+    new MakerDeb({
+      options: {
+        icon: './assets/icon/icon.png'
+      }
+    }),
   ],
   plugins: [
     new VitePlugin({
