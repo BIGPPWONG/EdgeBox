@@ -43,7 +43,7 @@ EdgeBox is built with:
 ## 🛠️ Installation
 
 1. **Download EdgeBox**
-   Download the latest release for your platform from the [Releases page](https://github.com/yourusername/edgebox/releases)
+   Download the latest release for your platform from the [Releases page](https://github.com/BIGPPWONG/edgebox/releases)
 
 2. **Install Docker Desktop**
    Ensure Docker Desktop is installed and running before starting EdgeBox.
@@ -151,7 +151,7 @@ EdgeBox includes a bundled sandbox Docker image that provides:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -167,8 +167,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: Report bugs and feature requests on [GitHub Issues](https://github.com/yourusername/edgebox/issues)
-- **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/yourusername/edgebox/discussions)
+- **Issues**: Report bugs and feature requests on [GitHub Issues](https://github.com/BIGPPWONG/edgebox/issues)
+- **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/BIGPPWONG/edgebox/discussions)
 - **Email**: Contact the maintainer at weiwen.wong90@gmail.com
 
 ---
