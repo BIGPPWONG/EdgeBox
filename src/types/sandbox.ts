@@ -14,6 +14,10 @@ export interface SandboxConfig {
   lastUsed: Date;
   timeout: number; // minutes
   ports: SandboxPortConfig[]; // Multiple ports that sandbox exposes
+  resources?: {
+    cpuCores: number;
+    memoryGB: number;
+  };
 }
 
 export interface SandboxSession {

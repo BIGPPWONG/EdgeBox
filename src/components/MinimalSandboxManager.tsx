@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DockerContainer } from '../types/docker';
-import { Button } from './ui/button';
-import { Trash2 } from 'lucide-react';
+import { Card } from './ui/card';
+import { Monitor, Trash2, Cpu, HardDrive } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,9 @@ import {
 } from './ui/dialog';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 
 type SandboxStatusResponse = {
   activeSessions: number;
@@ -226,5 +229,241 @@ export const MinimalSandboxManager: React.FC = () => {
         )}
       </div>
     </div>
+  );
+};
+
+export const SandboxCountCard: React.FC = () => {
+  const [runningCount, setRunningCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
+  const refreshCount = async () => {
+    setIsLoading(true);
+    try {
+      const result = await (window as any).sandboxManagerAPI.getStatus();
+      if (result.success) {
+        const status = result.status as SandboxStatusResponse;
+        const runningContainers = status.containerList.filter(
+          container => container.status === 'running'
+        );
+        setRunningCount(runningContainers.length);
+        setLastRefresh(new Date());
+      }
+    } catch (error) {
+      console.error('Error getting sandbox count:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshCount();
+    const interval = setInterval(refreshCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <Card className="p-4 h-full bg-gradient-to-br from-blue-50 to-indigo-100 overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <Monitor size={16} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Active Sandboxes</h3>
+            <p className="text-slate-600 text-xs">Running Containers</p>
+          </div>
+        </div>
+        <Badge className="bg-green-500 text-white text-xs">Live</Badge>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="text-center">
+          <div className="text-5xl font-bold text-slate-800 mb-2">
+            {isLoading ? <Loader2 className="animate-spin mx-auto" size={32} /> : runningCount}
+          </div>
+          {lastRefresh && (
+            <div className="text-xs text-slate-500">
+              Last update: {lastRefresh.toLocaleTimeString()}
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+export const DockerResourceConfigCard: React.FC = () => {
+  const [cpuCores, setCpuCores] = useState<number>(1);
+  const [memoryGB, setMemoryGB] = useState<number>(1);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    loadDockerSettings();
+  }, []);
+
+  // Auto-save when values change
+  useEffect(() => {
+    if (isLoading) return;
+
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      saveDockerSettings();
+    }, 1000); // Auto-save after 1 second of no changes
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [cpuCores, memoryGB]);
+
+  const loadDockerSettings = async () => {
+    try {
+      setIsLoading(true);
+      const result = await (window as any).settingsAPI.getSettings();
+      if (result.success && result.settings) {
+        setCpuCores(result.settings.dockerCpuCores || 1);
+        setMemoryGB(result.settings.dockerMemoryGB || 1);
+      }
+    } catch (error) {
+      console.error('Failed to load Docker resource settings:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveDockerSettings = async () => {
+    try {
+      const result = await (window as any).settingsAPI.updateSettings({
+        dockerCpuCores: cpuCores,
+        dockerMemoryGB: memoryGB
+      });
+
+      if (result.success) {
+        toast.success('Docker resource settings saved', {
+          duration: 1000
+        });
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Failed to save Docker resource settings:', error);
+      toast.error(`Failed to save settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleCpuChange = (value: string) => {
+    const numValue = parseInt(value) || 1;
+    setCpuCores(Math.max(1, Math.min(8, numValue)));
+  };
+
+  const handleMemoryChange = (value: string) => {
+    const numValue = parseInt(value) || 1;
+    setMemoryGB(Math.max(1, Math.min(16, numValue)));
+  };
+
+  const handleReset = () => {
+    setCpuCores(1);
+    setMemoryGB(1);
+  };
+
+  return (
+    <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-100 h-full overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <Cpu size={16} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Resources</h3>
+            <p className="text-slate-600 text-xs">Container Configuration</p>
+          </div>
+        </div>
+        <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
+          Config
+        </Badge>
+      </div>
+
+      <div className="flex-1 flex flex-col">
+        {isLoading ? (
+          <div className="flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="space-y-2 flex-1">
+            <div className="p-1.5 bg-white/60 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Cpu size={12} />
+                  <span className="text-xs font-medium">CPU Cores</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="cpu-cores"
+                    type="number"
+                    min="1"
+                    max="8"
+                    value={cpuCores}
+                    onChange={(e) => handleCpuChange(e.target.value)}
+                    className="w-16 h-6 text-xs px-2 py-1"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-1.5 bg-white/60 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <HardDrive size={12} />
+                  <span className="text-xs font-medium">Memory「GB」</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="memory-gb"
+                    type="number"
+                    min="1"
+                    max="16"
+                    value={memoryGB}
+                    onChange={(e) => handleMemoryChange(e.target.value)}
+                    className="w-16 h-6 text-xs px-2 py-1"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-auto space-y-2 pt-2">
+          <div className="pt-1 text-center">
+            <button
+              onClick={handleReset}
+              disabled={isLoading}
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors flex items-center space-x-1 mx-auto"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isLoading ? 'animate-spin' : ''}>
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                <path d="M21 21v-5h-5"/>
+              </svg>
+              <span>Reset</span>
+            </button>
+          </div>
+
+          <div className="text-xs text-slate-500 text-center">
+            Changes will apply to new containers only
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 };

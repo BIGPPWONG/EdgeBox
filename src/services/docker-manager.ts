@@ -3,6 +3,7 @@ import { SandboxConfig } from '../types/sandbox';
 import { DockerContainer } from '../types/docker';
 import { DEFAULT_CONTAINER_PORTS } from '../constants/ports';
 import { getDockerImagePath } from '../utils/paths';
+import { HostConfig } from 'dockerode';
 
 export class DockerManager {
   private docker: Docker;
@@ -91,14 +92,34 @@ export class DockerManager {
 
       const domain = `http://localhost:${ports[49999]}`; // Main port
 
+      // Build HostConfig with resource limits
+      const hostConfig: HostConfig = {
+        PortBindings: portBindings,
+        AutoRemove: true
+      };
+
+      // Apply resource limits if provided
+      if (config.resources) {
+        // Memory limit in bytes
+        const memoryBytes = config.resources.memoryGB * 1024 * 1024 * 1024;
+        hostConfig.Memory = memoryBytes;
+        hostConfig.MemorySwap = memoryBytes; // Set same as memory to disable swap
+
+        // CPU limits (convert cores to quota/period)
+        // Use 50ms period (20000 is 20ms period, 100000 is 100ms period)
+        const cpuPeriod = 100000; // 100ms period
+        const cpuQuota = config.resources.cpuCores * cpuPeriod; // X cores * period
+        hostConfig.CpuQuota = cpuQuota;
+        hostConfig.CpuPeriod = cpuPeriod;
+
+        console.log(`Container ${config.id} resource limits: CPU=${config.resources.cpuCores} cores, Memory=${config.resources.memoryGB}GB`);
+      }
+
       // Create and start container
       const dockerContainer = await this.docker.createContainer({
         Image: config.dockerImage,
         name: config.id,
-        HostConfig: {
-          PortBindings: portBindings,
-          AutoRemove: true
-        },
+        HostConfig: hostConfig,
         ExposedPorts: Object.fromEntries(
           DEFAULT_CONTAINER_PORTS.map(port => [`${port}/tcp`, {}])
         )

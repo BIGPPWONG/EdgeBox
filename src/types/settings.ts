@@ -3,6 +3,8 @@ export interface AppSettings {
   defaultDockerImage: string;
   mcpPort: number;
   enableGUITools: boolean;
+  dockerCpuCores: number;
+  dockerMemoryGB: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -10,4 +12,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultDockerImage: 'e2b-sandbox:latest',
   mcpPort: 8888,
   enableGUITools: false,
+  dockerCpuCores: 1,
+  dockerMemoryGB: 1,
 };

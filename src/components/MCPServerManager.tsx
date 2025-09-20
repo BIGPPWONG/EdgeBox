@@ -272,7 +272,7 @@ export const MCPServerConfigCard: React.FC = () => {
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900">MCP Config</h3>
-            <p className="text-slate-600 text-xs">Claude Desktop Connection</p>
+            <p className="text-slate-600 text-xs">Client Connection</p>
           </div>
         </div>
         <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200 text-xs">

@@ -199,19 +199,15 @@ export const DockerHealthCheck: React.FC = () => {
         )}
       </div>
 
-      <div className="pt-1 flex-shrink-0 flex justify-end">
-        <Button
+      <div className="pt-1 text-center">
+        <button
           onClick={checkDockerStatus}
           disabled={isChecking}
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2"
+          className="text-xs text-slate-400 hover:text-slate-600 transition-colors flex items-center space-x-1 mx-auto"
         >
-          <div className="flex items-center space-x-1">
-            <RefreshCw size={12} className={isChecking ? 'animate-spin' : ''} />
-            <span className="text-xs">{isChecking ? 'Checking...' : 'Refresh'}</span>
-          </div>
-        </Button>
+          <RefreshCw size={12} className={isChecking ? 'animate-spin' : ''} />
+          <span>{isChecking ? 'Checking...' : 'Refresh'}</span>
+        </button>
       </div>
     </Card>
 

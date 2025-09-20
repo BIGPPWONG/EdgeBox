@@ -160,7 +160,21 @@ ipcMain.handle('ping-docker', async () => {
 
 ipcMain.handle('start-container', async (_, containerName: string, image: string) => {
   try {
-    const config = { id: containerName, dockerImage: image };
+    // Get resource settings from settings manager
+    const settings = settingsManager.getSettings();
+    const cpuCores = settings.dockerCpuCores || 1;
+    const memoryGB = settings.dockerMemoryGB || 1;
+
+    // Build container configuration with resource limits
+    const config = {
+      id: containerName,
+      dockerImage: image,
+      resources: {
+        cpuCores,
+        memoryGB
+      }
+    };
+
     const container = await dockerManager.startContainer(config as any);
     return { success: true, container };
   } catch (error) {

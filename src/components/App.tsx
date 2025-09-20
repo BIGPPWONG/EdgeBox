@@ -254,16 +254,16 @@ export const App: React.FC = () => {
         </main>
 
         {/* 底部状态栏 */}
-        <div className="h-12 bg-white border-t border-slate-200 flex items-center justify-between px-8 text-sm">
+        <div className="h-12 bg-white border-t border-slate-200 flex items-center justify-end px-8 text-sm">
           <div className="flex items-center space-x-6">
-            <span className="text-slate-600">{APP_DISPLAY_NAME} v1.0</span>
+            <span className="text-slate-600">{APP_DISPLAY_NAME}</span>
           </div>
-          <div className="flex items-center space-x-4">
+          {/* <div className="flex items-center space-x-4">
             <Badge variant="outline" className="text-xs">
               <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
               System Ready
             </Badge>
-          </div>
+          </div> */}
         </div>
       </div>
 
