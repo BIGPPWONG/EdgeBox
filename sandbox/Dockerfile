@@ -336,7 +336,7 @@ RUN systemctl enable chrony
 
 # Java 配置 (with cleanup)
 COPY --from=eclipse-temurin:11-jdk $JAVA_HOME $JAVA_HOME
-RUN rm /usr/bin/java && \
+RUN rm -f /usr/bin/java && \
     ln -s ${JAVA_HOME}/bin/java /usr/bin/java && \
     wget https://github.com/SpencerPark/IJava/releases/download/v1.3.0/ijava-1.3.0.zip && \
     unzip ijava-1.3.0.zip && \
