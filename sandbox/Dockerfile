@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM debian:12
 
 # Base image with desktop environment and applications
 # Environment variables:
@@ -14,8 +14,7 @@ ENV \
 
 # Desktop environment and applications (merged for smaller image size):
 
-RUN yes | unminimize && \
-    apt-get update && \
+RUN apt-get update && \
     # Install all packages in one layer to reduce image size
     apt-get install -y \
         # X window server:
@@ -29,7 +28,7 @@ RUN yes | unminimize && \
         # Desktop SDK tools:
         xdotool scrot ffmpeg \
         # VNC and streaming:
-        x11vnc net-tools netcat \
+        x11vnc net-tools netcat-openbsd \
         # Standard applications:
         x11-apps libreoffice xpdf gedit xpaint tint2 galculator pcmanfm \
         # Dependencies for later installations:
@@ -44,11 +43,11 @@ RUN yes | unminimize && \
     # Set the default terminal
     ln -sf /usr/bin/xfce4-terminal.wrapper /etc/alternatives/x-terminal-emulator && \
     # Install Python packages:
-    pip install numpy && \
+    apt-get install -y python3-numpy && \
     # Clone NoVNC and websockify:
-    git clone --branch e2b-desktop https://github.com/e2b-dev/noVNC.git /opt/noVNC && \
+    git clone -b e2b-desktop https://github.com/e2b-dev/noVNC.git /opt/noVNC && \
     ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html && \
-    git clone --branch v0.12.0 https://github.com/novnc/websockify /opt/noVNC/utils/websockify && \
+    git clone -b v0.12.0 https://github.com/novnc/websockify /opt/noVNC/utils/websockify && \
     # Clean up package cache and temporary files to reduce image size:
     apt-get autoremove -y && \
     apt-get autoclean && \
@@ -58,19 +57,17 @@ RUN yes | unminimize && \
 
 # ~ Make your changes to this template BELOW this line ~
 
-# Install Chrome with CDP support (optimized single layer)
-RUN curl -sSL https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    echo "deb https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
-    apt-get update && \
-    apt-get install -y google-chrome-stable chromium-chromedriver && \
+# Install Chromium from Debian official repository (optimized single layer)
+RUN apt-get update && \
+    apt-get install -y chromium chromium-driver && \
     # Clean up package cache to reduce image size:
     apt-get autoremove -y && \
     apt-get autoclean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Configure Chrome to skip first-run experience and enable CDP
-RUN mkdir -p /etc/opt/chrome/policies/managed/ && \
-    echo '{"AllowInsecureLocalConnections": true, "RemoteDebuggingAllowed": true, "RemoteDebuggingPort": "9222", "RemoteDebuggingAddress":"0.0.0.0", "AutoplayAllowed": true, "MetricsReportingEnabled": false, "BrowserSignin": 0, "SyncDisabled": true, "PromotionalTabsEnabled": false, "DefaultBrowserSettingEnabled": false, "DefaultSearchProviderEnabled": false, "HideWebStoreIcon": true, "PasswordManagerEnabled": false, "PromptForDownloadLocation": false, "SafeBrowsingEnabled": false, "SafeBrowsingExtendedReportingEnabled": false, "UrlKeyedAnonymizedDataCollectionEnabled": false, "CloudPrintSubmitEnabled": false, "CloudManagementEnrollmentToken": "", "SpellcheckEnabled": false}' > /etc/opt/chrome/policies/managed/policies.json
+# Configure Chromium to skip first-run experience and enable CDP
+RUN mkdir -p /etc/chromium/policies/managed/ && \
+    echo '{"AllowInsecureLocalConnections": true, "RemoteDebuggingAllowed": true, "RemoteDebuggingPort": "9222", "RemoteDebuggingAddress":"0.0.0.0", "AutoplayAllowed": true, "MetricsReportingEnabled": false, "BrowserSignin": 0, "SyncDisabled": true, "PromotionalTabsEnabled": false, "DefaultBrowserSettingEnabled": false, "DefaultSearchProviderEnabled": false, "HideWebStoreIcon": true, "PasswordManagerEnabled": false, "PromptForDownloadLocation": false, "SafeBrowsingEnabled": false, "SafeBrowsingExtendedReportingEnabled": false, "UrlKeyedAnonymizedDataCollectionEnabled": false, "CloudPrintSubmitEnabled": false, "CloudManagementEnrollmentToken": "", "SpellcheckEnabled": false}' > /etc/chromium/policies/managed/policies.json
 
 # Create user and configure Chrome (merged for smaller image size)
 RUN apt-get update && \
@@ -80,22 +77,21 @@ RUN apt-get update && \
     usermod -aG sudo user && \
     passwd -d user && \
     echo "user ALL=(ALL:ALL) NOPASSWD: ALL" >>/etc/sudoers && \
-    # Create Chrome configuration directories
-    mkdir -p /home/user/.config/google-chrome/Default/ && \
-    echo '{  "browser": { "custom_chrome_frame": true, "has_seen_welcome_page": true }, "profile": { "default_content_setting_values": { "geolocation": 1 }, "exit_type": "Normal", "exited_cleanly": true, "password_manager_enabled": false } }' > /home/user/.config/google-chrome/Default/Preferences && \
+    # Create Chromium configuration directories
+    mkdir -p /home/user/.config/chromium/Default/ && \
+    echo '{  "browser": { "custom_chrome_frame": true, "has_seen_welcome_page": true }, "profile": { "default_content_setting_values": { "geolocation": 1 }, "exit_type": "Normal", "exited_cleanly": true, "password_manager_enabled": false } }' > /home/user/.config/chromium/Default/Preferences && \
     # Configure GNOME keyring and autostart
     mkdir -p /home/user/.local/share/keyrings && \
     touch /home/user/.local/share/keyrings/login.keyring && \
     mkdir -p /home/user/.config/autostart && \
-
-    # Create Chrome data directory and set permissions
-    mkdir -p /home/user/chrome-data && \
+    # Create Chromium data directory and set permissions
+    mkdir -p /home/user/chromium-data && \
     chown -R user:user /home/user && \
-    chmod -R 777 /home/user/chrome-data && \
+    chmod -R 777 /home/user/chromium-data && \
     chmod 777 /home/user && \
-    # Add Chrome aliases
-    echo 'alias google-chrome="/usr/local/bin/chrome"' >> /home/user/.bashrc && \
-    echo 'alias chrome="/usr/local/bin/chrome"' >> /home/user/.bashrc && \
+    # Add Chromium aliases
+    echo 'alias chromium="/usr/local/bin/chromium"' >> /home/user/.bashrc && \
+    echo 'alias chrome="/usr/local/bin/chromium"' >> /home/user/.bashrc && \
     # Add VS Code alias
     echo 'alias code="code --no-sandbox"' >> /home/user/.bashrc && \
     chown -R 1000:1000 /home/user/.config && \
@@ -105,9 +101,9 @@ RUN apt-get update && \
     apt-get autoclean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Create Chrome launcher with CDP flags
-RUN printf '#!/bin/bash\necho "Starting Chrome with remote debugging on 0.0.0.0:9222..."\n/usr/bin/google-chrome-stable --no-sandbox --disable-gpu --disable-dev-shm-usage --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --no-first-run --no-default-browser-check --disable-extensions --disable-default-apps --disable-component-update --password-store=basic --use-mock-keychain --autoplay-policy=no-user-gesture-required --user-data-dir=/home/user/chrome-data --no-zygote --disable-session-crashed-bubble "$@"\necho "Chrome exited with code $?"\n' > /usr/local/bin/chrome && \
-    chmod +x /usr/local/bin/chrome
+# Create Chromium launcher with CDP flags
+RUN printf '#!/bin/bash\necho "Starting Chromium with remote debugging on 0.0.0.0:9222..."\n/usr/bin/chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --no-first-run --no-default-browser-check --disable-extensions --disable-default-apps --disable-component-update --password-store=basic --use-mock-keychain --autoplay-policy=no-user-gesture-required --user-data-dir=/home/user/chromium-data --no-zygote --disable-session-crashed-bubble "$@"\necho "Chromium exited with code $?"\n' > /usr/local/bin/chromium && \
+    chmod +x /usr/local/bin/chromium
 
 # Create a socat service with supervisor to ensure port forwarding is always running
 # RUN mkdir -p /etc/supervisor/conf.d && \
@@ -125,10 +121,16 @@ RUN echo '#!/bin/bash\n# 启动supervisord服务\nsudo /usr/bin/supervisord -c /
     chown -R user:user /home/user/.config/autostart
 
 # Install VS Code (optimized single layer)
-RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
-    add-apt-repository -y "deb https://packages.microsoft.com/repos/vscode stable main" && \
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+        "amd64") VS_ARCH="x64" ;; \
+        "arm64") VS_ARCH="arm64" ;; \
+        *) echo "Unsupported architecture: $TARGETARCH" && exit 1 ;; \
+    esac && \
+    wget -O /tmp/vscode.deb "https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-${VS_ARCH}" && \
+    dpkg -i /tmp/vscode.deb || true && \
     apt-get update && \
-    apt-get install -y code && \
+    apt-get install -f -y && \
     # Clean up package cache to reduce image size:
     apt-get autoremove -y && \
     apt-get autoclean && \
@@ -145,13 +147,13 @@ COPY ./xfce4-desktop.xml /home/user/.config/xfce4/xfconf/xfce-perchannel-xml/xfc
 RUN mkdir -p /home/user/.config/xfce4/xfconf/xfce-perchannel-xml/ && \
     echo '<?xml version="1.0" encoding="UTF-8"?>\n<channel name="xfce4-screensaver" version="1.0">\n  <property name="saver" type="empty">\n    <property name="enabled" type="bool" value="false"/>\n    <property name="mode" type="int" value="0"/>\n  </property>\n  <property name="lock" type="empty">\n    <property name="enabled" type="bool" value="false"/>\n  </property>\n</channel>' > /home/user/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-screensaver.xml && \
     echo '<?xml version="1.0" encoding="UTF-8"?>\n<channel name="xfce4-power-manager" version="1.0">\n  <property name="xfce4-power-manager" type="empty">\n    <property name="blank-on-ac" type="int" value="0"/>\n    <property name="blank-on-battery" type="int" value="0"/>\n    <property name="dpms-enabled" type="bool" value="false"/>\n    <property name="dpms-on-ac-sleep" type="uint" value="0"/>\n    <property name="dpms-on-ac-off" type="uint" value="0"/>\n    <property name="dpms-on-battery-sleep" type="uint" value="0"/>\n    <property name="dpms-on-battery-off" type="uint" value="0"/>\n  </property>\n</channel>' > /home/user/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-power-manager.xml && \
-    # Configure XFCE panel with Chrome launcher in taskbar
-    echo '<?xml version="1.0" encoding="UTF-8"?>\n<channel name="xfce4-panel" version="1.0">\n  <property name="configver" type="int" value="2"/>\n  <property name="panels" type="array">\n    <value type="int" value="1"/>\n    <property name="panel-1" type="empty">\n      <property name="position" type="string" value="p=6;x=0;y=0"/>\n      <property name="length" type="uint" value="100"/>\n      <property name="position-locked" type="bool" value="true"/>\n      <property name="size" type="uint" value="30"/>\n      <property name="plugin-ids" type="array">\n        <value type="int" value="1"/>\n        <value type="int" value="2"/>\n        <value type="int" value="3"/>\n        <value type="int" value="4"/>\n        <value type="int" value="5"/>\n        <value type="int" value="6"/>\n        <value type="int" value="7"/>\n      </property>\n    </property>\n  </property>\n  <property name="plugins" type="empty">\n    <property name="plugin-1" type="string" value="applicationsmenu"/>\n    <property name="plugin-2" type="string" value="tasklist"/>\n    <property name="plugin-3" type="string" value="separator"/>\n    <property name="plugin-4" type="string" value="launcher">\n      <property name="items" type="array">\n        <value type="string" value="google-chrome.desktop"/>\n      </property>\n    </property>\n    <property name="plugin-5" type="string" value="separator"/>\n    <property name="plugin-6" type="string" value="systray"/>\n    <property name="plugin-7" type="string" value="clock"/>\n  </property>\n</channel>' > /home/user/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml && \
-    # Override system Chrome desktop entry to use custom launcher
+    # Configure XFCE panel with Chromium launcher in taskbar
+    echo '<?xml version="1.0" encoding="UTF-8"?>\n<channel name="xfce4-panel" version="1.0">\n  <property name="configver" type="int" value="2"/>\n  <property name="panels" type="array">\n    <value type="int" value="1"/>\n    <property name="panel-1" type="empty">\n      <property name="position" type="string" value="p=6;x=0;y=0"/>\n      <property name="length" type="uint" value="100"/>\n      <property name="position-locked" type="bool" value="true"/>\n      <property name="size" type="uint" value="30"/>\n      <property name="plugin-ids" type="array">\n        <value type="int" value="1"/>\n        <value type="int" value="2"/>\n        <value type="int" value="3"/>\n        <value type="int" value="4"/>\n        <value type="int" value="5"/>\n        <value type="int" value="6"/>\n        <value type="int" value="7"/>\n      </property>\n    </property>\n  </property>\n  <property name="plugins" type="empty">\n    <property name="plugin-1" type="string" value="applicationsmenu"/>\n    <property name="plugin-2" type="string" value="separator"/>\n    <property name="plugin-3" type="string" value="tasklist"/>\n    <property name="plugin-4" type="string" value="launcher">\n      <property name="items" type="array">\n        <value type="string" value="chromium.desktop"/>\n      </property>\n    </property>\n    <property name="plugin-5" type="string" value="separator"/>\n    <property name="plugin-6" type="string" value="systray"/>\n    <property name="plugin-7" type="string" value="clock"/>\n  </property>\n</channel>' > /home/user/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml && \
+    # Override system Chromium desktop entry to use custom launcher
     mkdir -p /home/user/.local/share/applications && \
-    echo "[Desktop Entry]\nVersion=1.0\nType=Application\nName=Google Chrome\nComment=Web Browser with Remote Debugging\nExec=/usr/local/bin/chrome\nIcon=google-chrome\nTerminal=false\nCategories=Network;WebBrowser;\nMimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;x-scheme-handler/chrome;video/webm;application/x-xpinstall;\nActions=NewWindow;NewPrivateWindow;" > /home/user/.local/share/applications/google-chrome.desktop && \
-    # Set Chrome as default web browser
-    echo "[Default Applications]\ntext/html=google-chrome.desktop\ntext/xml=google-chrome.desktop\napplication/xhtml+xml=google-chrome.desktop\napplication/xml=google-chrome.desktop\napplication/rss+xml=google-chrome.desktop\napplication/rdf+xml=google-chrome.desktop\nimage/gif=google-chrome.desktop\nimage/jpeg=google-chrome.desktop\nimage/png=google-chrome.desktop\nx-scheme-handler/http=google-chrome.desktop\nx-scheme-handler/https=google-chrome.desktop\nx-scheme-handler/ftp=google-chrome.desktop\nx-scheme-handler/chrome=google-chrome.desktop\nvideo/webm=google-chrome.desktop\napplication/x-xpinstall=google-chrome.desktop" > /home/user/.config/mimeapps.list && \
+    echo "[Desktop Entry]\nVersion=1.0\nType=Application\nName=Chromium\nComment=Web Browser with Remote Debugging\nExec=/usr/local/bin/chromium\nIcon=chromium\nTerminal=false\nCategories=Network;WebBrowser;\nMimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;x-scheme-handler/chrome;video/webm;application/x-xpinstall;\nActions=NewWindow;NewPrivateWindow;" > /home/user/.local/share/applications/chromium.desktop && \
+    # Set Chromium as default web browser
+    echo "[Default Applications]\ntext/html=chromium.desktop\ntext/xml=chromium.desktop\napplication/xhtml+xml=chromium.desktop\napplication/xml=chromium.desktop\napplication/rss+xml=chromium.desktop\napplication/rdf+xml=chromium.desktop\nimage/gif=chromium.desktop\nimage/jpeg=chromium.desktop\nimage/png=chromium.desktop\nx-scheme-handler/http=chromium.desktop\nx-scheme-handler/https=chromium.desktop\nx-scheme-handler/ftp=chromium.desktop\nx-scheme-handler/chrome=chromium.desktop\nvideo/webm=chromium.desktop\napplication/x-xpinstall=chromium.desktop" > /home/user/.config/mimeapps.list && \
     chown -R user:user /home/user/.config /home/user/.local
 
 # Create desktop icons for terminal, VS Code, and Chrome
@@ -162,9 +164,9 @@ RUN mkdir -p /home/user/Desktop && \
     # VS Code desktop icon
     echo "[Desktop Entry]\nVersion=1.0\nType=Application\nName=Visual Studio Code\nComment=Code Editor\nExec=/usr/bin/code --no-sandbox\nIcon=vscode\nTerminal=false\nCategories=Development;IDE;" > /home/user/Desktop/vscode.desktop && \
     chmod +x /home/user/Desktop/vscode.desktop && \
-    # Chrome desktop icon
-    echo "[Desktop Entry]\nVersion=1.0\nType=Application\nName=Google Chrome\nComment=Web Browser with Remote Debugging\nExec=/usr/local/bin/chrome\nIcon=google-chrome\nTerminal=false\nCategories=Network;WebBrowser;" > /home/user/Desktop/chrome.desktop && \
-    chmod +x /home/user/Desktop/chrome.desktop && \
+    # Chromium desktop icon
+    echo "[Desktop Entry]\nVersion=1.0\nType=Application\nName=Chromium\nComment=Web Browser with Remote Debugging\nExec=/usr/local/bin/chromium\nIcon=chromium\nTerminal=false\nCategories=Network;WebBrowser;" > /home/user/Desktop/chromium.desktop && \
+    chmod +x /home/user/Desktop/chromium.desktop && \
     chown -R user:user /home/user/Desktop
 
 # Copy firefox policies
@@ -180,12 +182,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
         build-essential curl git util-linux jq sudo fonts-noto-cjk \
         systemd ca-certificates chrony r-base software-properties-common \
         libzmq3-dev libzmq5 pkg-config && \
-    # 安装 Python 3.12
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y python3.12 python3.12-dev python3.12-venv && \
-    ln -sf /usr/bin/python3.12 /usr/bin/python && \
-    curl -sS https://bootstrap.pypa.io/get-pip.py | python && \
+    # 使用 Debian 12 默认的 Python 3.11 (更稳定)
+    apt-get install -y python3 python3-dev python3-venv python3-pip && \
+    ln -sf /usr/bin/python3 /usr/bin/python && \
+    # curl -sS https://bootstrap.pypa.io/get-pip.py | python && \
     # Clean up package cache to reduce image size:
     apt-get autoremove -y && \
     apt-get autoclean && \
@@ -236,8 +236,8 @@ RUN mkdir -p /home/user && \
 
 # 安装 Jupyter (with cleanup)
 COPY ./requirements.txt requirements.txt
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
+RUN pip install --break-system-packages --upgrade pip && \
+    pip install --break-system-packages --no-cache-dir -r requirements.txt && \
     ipython kernel install --name "python3" --user && \
     # Clean up pip cache
     rm -rf /root/.cache
@@ -261,7 +261,7 @@ RUN chmod +x /usr/bin/deno && \
 COPY ./deno.json /root/.local/share/jupyter/kernels/deno/kernel.json
 
 # Bash Kernel (with cleanup)
-RUN pip install bash_kernel && \
+RUN pip install --break-system-packages bash_kernel && \
     python -m bash_kernel.install && \
     # Clean up pip cache
     rm -rf /root/.cache
@@ -348,6 +348,30 @@ RUN mkdir -p $IPYTHON_CONFIG_PATH/profile_default/startup
 COPY startup_scripts/* $IPYTHON_CONFIG_PATH/profile_default/startup
 
 ENV DISPLAY=:0
+
+RUN apt-get update && apt-get install -y dbus-x11 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN apt purge -y libreoffice*
+# Install LibreOffice from official website
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+        "amd64") LO_ARCH="x86_64" ;; \
+        "arm64") LO_ARCH="aarch64" ;; \
+        *) echo "Unsupported architecture: $TARGETARCH" && exit 1 ;; \
+    esac && \
+    wget -O /tmp/libreoffice.tar.gz "https://mirrors.ustc.edu.cn/tdf/libreoffice/stable/25.8.1/deb/${LO_ARCH}/LibreOffice_25.8.1_Linux_${LO_ARCH}_deb.tar.gz" && \
+    cd /tmp && \
+    tar -xzf libreoffice.tar.gz && \
+    cd LibreOffice_*/DEBS && \
+    dpkg -i *.deb || true && \
+    apt-get update && \
+    apt-get install -f -y && \
+    # Clean up
+    rm -rf /tmp/LibreOffice_* /tmp/libreoffice.tar.gz && \
+    apt-get autoremove -y && \
+    apt-get autoclean && \
+    rm -rf /var/lib/apt/lists/*
 
 
 
