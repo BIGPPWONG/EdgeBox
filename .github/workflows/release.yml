@@ -61,6 +61,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build sandbox Docker image
+        run: |
+          cd sandbox
+          docker buildx build \
+            --platform linux/${{ matrix.arch == 'x64' && 'amd64' || matrix.arch }} \
+            --tag e2b-sandbox:latest \
+            --load \
+            .
+
+      - name: Save Docker image to tar.gz
+        run: |
+          mkdir -p sandbox_images
+          docker save e2b-sandbox:latest | gzip > sandbox_images/e2b-sandbox-latest.tar.gz
+
       - name: Make application
         run: pnpm run make
         env:
