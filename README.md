@@ -21,14 +21,14 @@
 
 ## 🤔 Why Choose EdgeBox?
 
-| Feature          |               EdgeBox               |     E2B Cloud     | Other OSS Sandboxes (e.g., `codebox`) |
-| :--------------- | :---------------------------------: | :---------------: | :-----------------------------------: |
-| **Environment**  |             🖥️ **Local**             |      ☁️ Cloud      |                🖥️ Local                |
-| **Interface**    |              GUI + CLI              |     CLI-Only      |               CLI-Only                |
-| **Capability**   | **Computer Use** & Code Interpreter | Code Interpreter  |           Code Interpreter            |
-| **Data Privacy** |         ✅ **100% Private**          | ❌ 3rd-Party Cloud |            ✅ 100% Private             |
-| **Latency**      |           ⚡️ **Near-Zero**           | Network Dependent |              ⚡️ Near-Zero              |
-| **Integration**  |         ✅ **MCP Compliant**         |      E2B SDK      |            Proprietary API            |
+| Feature          |               EdgeBox               | Other OSS Sandboxes (e.g., `codebox`) |
+| :--------------- | :---------------------------------: | :-----------------------------------: |
+| **Environment**  |             🖥️ **Local**             |                🖥️ Local                |
+| **Interface**    |              GUI + CLI              |               CLI-Only                |
+| **Capability**   | **Computer Use** & Code Interpreter |           Code Interpreter            |
+| **Data Privacy** |         ✅ **100% Private**          |            ✅ 100% Private             |
+| **Latency**      |           ⚡️ **Near-Zero**           |              ⚡️ Near-Zero              |
+| **Integration**  |         ✅ **MCP Compliant**         |            Proprietary API            |
 
 ## 📖 Table of Contents
 
