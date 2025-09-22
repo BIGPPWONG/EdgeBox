@@ -7,7 +7,42 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-docker-images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build sandbox Docker image for ${{ matrix.arch }}
+        run: |
+          cd sandbox
+          docker buildx build \
+            --platform linux/${{ matrix.arch }} \
+            --tag e2b-sandbox:latest \
+            --load \
+            .
+
+      - name: Save Docker image to tar.gz
+        run: |
+          mkdir -p docker-images
+          docker save e2b-sandbox:latest | gzip > docker-images/e2b-sandbox-${{ matrix.arch }}.tar.gz
+
+      - name: Upload to temporary storage
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ matrix.arch }}
+          path: docker-images/e2b-sandbox-${{ matrix.arch }}.tar.gz
+          retention-days: 1
+
   release:
+    needs: build-docker-images
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -16,31 +51,45 @@ jobs:
           # macOS (Intel & Apple Silicon)
           - os: macos-13
             artifact_name: EdgeBox-macos-x64
-            artifact_path: out/make/**/*.{dmg,zip}
-            arch: x64
+            artifact_path: |
+              out/make/**/*.dmg
+              out/make/**/*.zip
+            arch: amd64
           - os: macos-latest
             artifact_name: EdgeBox-macos-arm64
-            artifact_path: out/make/**/*.{dmg,zip}
+            artifact_path: |
+              out/make/**/*.dmg
+              out/make/**/*.zip
             arch: arm64
 
           # Windows (x64 & ARM64)
           - os: windows-latest
             artifact_name: EdgeBox-windows-x64
-            artifact_path: out/make/**/*.{exe,msi}
-            arch: x64
+            artifact_path: |
+              out/make/**/*.exe
+              out/make/**/*.msi
+            arch: amd64
           - os: windows-latest
             artifact_name: EdgeBox-windows-arm64
-            artifact_path: out/make/**/*.{exe,msi}
+            artifact_path: |
+              out/make/**/*.exe
+              out/make/**/*.msi
             arch: arm64
 
           # Linux (x64 & ARM64)
           - os: ubuntu-latest
             artifact_name: EdgeBox-linux-x64
-            artifact_path: out/make/**/*.{AppImage,deb,rpm}
-            arch: x64
+            artifact_path: |
+              out/make/**/*.AppImage
+              out/make/**/*.deb
+              out/make/**/*.rpm
+            arch: amd64
           - os: ubuntu-latest
             artifact_name: EdgeBox-linux-arm64
-            artifact_path: out/make/**/*.{AppImage,deb}
+            artifact_path: |
+              out/make/**/*.AppImage
+              out/make/**/*.deb
+              out/make/**/*.rpm
             arch: arm64
 
     steps:
@@ -61,6 +110,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Download Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-${{ matrix.arch }}
+          path: sandbox_images
+
+      - name: Rename Docker image to expected filename
+        run: |
+          cd sandbox_images
+          mv e2b-sandbox-${{ matrix.arch }}.tar.gz e2b-sandbox-latest.tar.gz
+
+
       - name: Make application
         run: pnpm run make
         env:
@@ -77,9 +138,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download all artifacts
+      - name: Download application artifacts only
         uses: actions/download-artifact@v4
         with:
+          pattern: EdgeBox-*
           path: artifacts
 
       - name: Create Release
