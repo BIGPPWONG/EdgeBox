@@ -51,31 +51,45 @@ jobs:
           # macOS (Intel & Apple Silicon)
           - os: macos-13
             artifact_name: EdgeBox-macos-x64
-            artifact_path: out/make/**/*.{dmg,zip}
+            artifact_path: |
+              out/make/**/*.dmg
+              out/make/**/*.zip
             arch: amd64
           - os: macos-latest
             artifact_name: EdgeBox-macos-arm64
-            artifact_path: out/make/**/*.{dmg,zip}
+            artifact_path: |
+              out/make/**/*.dmg
+              out/make/**/*.zip
             arch: arm64
 
           # Windows (x64 & ARM64)
           - os: windows-latest
             artifact_name: EdgeBox-windows-x64
-            artifact_path: out/make/**/*.{exe,msi}
+            artifact_path: |
+              out/make/**/*.exe
+              out/make/**/*.msi
             arch: amd64
           - os: windows-latest
             artifact_name: EdgeBox-windows-arm64
-            artifact_path: out/make/**/*.{exe,msi}
+            artifact_path: |
+              out/make/**/*.exe
+              out/make/**/*.msi
             arch: arm64
 
           # Linux (x64 & ARM64)
           - os: ubuntu-latest
             artifact_name: EdgeBox-linux-x64
-            artifact_path: out/make/**/*.{AppImage,deb,rpm}
+            artifact_path: |
+              out/make/**/*.AppImage
+              out/make/**/*.deb
+              out/make/**/*.rpm
             arch: amd64
           - os: ubuntu-latest
             artifact_name: EdgeBox-linux-arm64
-            artifact_path: out/make/**/*.{AppImage,deb}
+            artifact_path: |
+              out/make/**/*.AppImage
+              out/make/**/*.deb
+              out/make/**/*.rpm
             arch: arm64
 
     steps:
