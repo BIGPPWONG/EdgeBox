@@ -1,8 +1,31 @@
 # EdgeBox - Local LLM Agent Sandbox
 
+<div align="center">
+  <img src="assets/icon/icon.png" alt="EdgeBox Logo" width="128" height="128" />
+</div>
+
 EdgeBox is a local desktop application that brings E2B's powerful sandbox capabilities to your desktop. Based on the open-source E2B code interpreter project, EdgeBox transforms the cloud-based sandbox into a locally-running environment, giving you full control over your AI agent development and testing environment.
 
 **What makes EdgeBox unique**: While most open-source sandbox projects only provide terminal/CLI environments, EdgeBox offers **both terminal AND GUI environments** through MCP tools, enabling true **Computer Use** capabilities for AI agents. Your LLMs can not only execute code but also interact with desktop applications, browsers, and visual interfaces.
+
+## 📖 Table of Contents
+
+- [🚀 Key Features](#-key-features)
+- [🏗️ Architecture](#️-architecture)
+- [📋 Prerequisites](#-prerequisites)
+- [🛠️ Installation](#️-installation)
+- [🎯 Usage](#-usage)
+  - [Quick Start](#quick-start)
+  - [MCP Client Configuration](#mcp-client-configuration)
+  - [Using EdgeBox with LLMs](#using-edgebox-with-llms)
+  - [Multi-Session Concurrent Sandboxes](#multi-session-concurrent-sandboxes)
+  - [Configuration](#configuration)
+  - [Docker Integration](#docker-integration)
+- [🔐 Security](#-security)
+- [📄 License](#-license)
+- [🙏 Acknowledgments](#-acknowledgments)
+- [🔗 Related Projects](#-related-projects)
+- [📞 Support](#-support)
 
 ## 🚀 Key Features
 

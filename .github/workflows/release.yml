@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          # macOS (Intel & Apple Silicon)
+          - os: macos-13
+            artifact_name: EdgeBox-macos-x64
+            artifact_path: out/make/**/*.{dmg,zip}
+            arch: x64
+          - os: macos-latest
+            artifact_name: EdgeBox-macos-arm64
+            artifact_path: out/make/**/*.{dmg,zip}
+            arch: arm64
+
+          # Windows (x64 & ARM64)
+          - os: windows-latest
+            artifact_name: EdgeBox-windows-x64
+            artifact_path: out/make/**/*.{exe,msi}
+            arch: x64
+          - os: windows-latest
+            artifact_name: EdgeBox-windows-arm64
+            artifact_path: out/make/**/*.{exe,msi}
+            arch: arm64
+
+          # Linux (x64 & ARM64)
+          - os: ubuntu-latest
+            artifact_name: EdgeBox-linux-x64
+            artifact_path: out/make/**/*.{AppImage,deb,rpm}
+            arch: x64
+          - os: ubuntu-latest
+            artifact_name: EdgeBox-linux-arm64
+            artifact_path: out/make/**/*.{AppImage,deb}
+            arch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Make application
+        run: npm run make
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+
+  create-release:
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        run: |
+          for artifact in artifacts/**/*; do
+            if [ -f "$artifact" ]; then
+              asset_name=$(basename "$artifact")
+              echo "Uploading $asset_name"
+              gh release upload "${{ github.ref_name }}" "$artifact" --clobber --repo "${{ github.repository }}"
+            fi
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

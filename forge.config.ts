@@ -16,6 +16,7 @@ const config: ForgeConfig = {
     icon: './assets/icon/icon' // no file extension required
   },
   rebuildConfig: {},
+  outDir: 'out', // 指定统一的输出目录
   makers: [
     new MakerSquirrel({
       setupIcon: './assets/icon/icon.ico'
