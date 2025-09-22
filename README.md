@@ -1,143 +1,161 @@
-# EdgeBox - Local LLM Agent Sandbox
+# EdgeBox - The Local Desktop Sandbox for AI Agents
 
 <div align="center">
   <img src="assets/icon/icon.png" alt="EdgeBox Logo" width="128" height="128" />
+  <br/>
+  <strong>A fully-featured, GUI-powered local LLM Agent sandbox with complete support for the MCP protocol.</strong>
+  <br/>
+  <p>Empower your Large Language Models (LLMs) with true "Computer Use" capabilities.</p>
 </div>
 
-EdgeBox is a local desktop application that brings E2B's powerful sandbox capabilities to your desktop. Based on the open-source E2B code interpreter project, EdgeBox transforms the cloud-based sandbox into a locally-running environment, giving you full control over your AI agent development and testing environment.
+---
 
-**What makes EdgeBox unique**: While most open-source sandbox projects only provide terminal/CLI environments, EdgeBox offers **both terminal AND GUI environments** through MCP tools, enabling true **Computer Use** capabilities for AI agents. Your LLMs can not only execute code but also interact with desktop applications, browsers, and visual interfaces.
+**EdgeBox** is a powerful desktop application that brings the cloud-based sandbox capabilities of E2B (e2b.dev) to your local machine. Based on the open-source E2B Code Interpreter project, EdgeBox transforms the sandbox into a locally-running environment, giving you full control over your AI agent's development and execution environment.
+
+**What makes EdgeBox unique**: While most open-source sandbox projects only provide a terminal/CLI, EdgeBox offers both **a command-line shell** AND a **full graphical (GUI) desktop environment** via an integrated VNC viewer. This means your LLM Agent is no longer just a code executor—it's a digital worker that can operate browsers, use VS Code, and interact with desktop applications, just like a human.
+
+<div align="center">
+  <img src="assets/screenshots/main-app.png" alt="EdgeBox Main Application" width="800" />
+  <p><em>The EdgeBox Main Application Dashboard</em></p>
+</div>
+
+## 🤔 Why Choose EdgeBox?
+
+| Feature          |               EdgeBox               |     E2B Cloud     | Other OSS Sandboxes (e.g., `codebox`) |
+| :--------------- | :---------------------------------: | :---------------: | :-----------------------------------: |
+| **Environment**  |             🖥️ **Local**             |      ☁️ Cloud      |                🖥️ Local                |
+| **Interface**    |              GUI + CLI              |     CLI-Only      |               CLI-Only                |
+| **Capability**   | **Computer Use** & Code Interpreter | Code Interpreter  |           Code Interpreter            |
+| **Data Privacy** |         ✅ **100% Private**          | ❌ 3rd-Party Cloud |            ✅ 100% Private             |
+| **Latency**      |           ⚡️ **Near-Zero**           | Network Dependent |              ⚡️ Near-Zero              |
+| **Integration**  |         ✅ **MCP Compliant**         |      E2B SDK      |            Proprietary API            |
 
 ## 📖 Table of Contents
 
-- [🚀 Key Features](#-key-features)
-- [🏗️ Architecture](#️-architecture)
-- [📋 Prerequisites](#-prerequisites)
-- [🛠️ Installation](#️-installation)
-- [🎯 Usage](#-usage)
-  - [Quick Start](#quick-start)
-  - [MCP Client Configuration](#mcp-client-configuration)
-  - [Using EdgeBox with LLMs](#using-edgebox-with-llms)
-  - [Multi-Session Concurrent Sandboxes](#multi-session-concurrent-sandboxes)
-  - [Configuration](#configuration)
-  - [Docker Integration](#docker-integration)
-- [🔐 Security](#-security)
-- [📄 License](#-license)
-- [🙏 Acknowledgments](#-acknowledgments)
-- [🔗 Related Projects](#-related-projects)
-- [📞 Support](#-support)
+- [EdgeBox - The Local Desktop Sandbox for AI Agents](#edgebox---the-local-desktop-sandbox-for-ai-agents)
+  - [🤔 Why Choose EdgeBox?](#-why-choose-edgebox)
+  - [📖 Table of Contents](#-table-of-contents)
+  - [🚀 Core Features](#-core-features)
+    - [1. 💻 Full Desktop Environment (Computer Use)](#1--full-desktop-environment-computer-use)
+    - [2. 🐚 Complete Code Interpreter \& Shell](#2--complete-code-interpreter--shell)
+    - [3. 🔗 Seamless LLM Agent Integration (via MCP)](#3--seamless-llm-agent-integration-via-mcp)
+  - [🏗️ Architecture](#️-architecture)
+  - [📋 Prerequisites](#-prerequisites)
+  - [🛠️ Installation](#️-installation)
+  - [🎯 Usage](#-usage)
+    - [Quick Start](#quick-start)
+    - [MCP Client Configuration](#mcp-client-configuration)
+    - [Instructing Your LLM Agent](#instructing-your-llm-agent)
+    - [Multi-Session Concurrent Sandboxes](#multi-session-concurrent-sandboxes)
+  - [🔐 Security](#-security)
+  - [📄 License](#-license)
+  - [🙏 Acknowledgments](#-acknowledgments)
+  - [🔗 Related Projects](#-related-projects)
+  - [📞 Support](#-support)
 
-## 🚀 Key Features
+## 🚀 Core Features
 
-### MCP HTTP Streamable Protocol Integration
-- **Universal LLM Access**: All sandbox capabilities exposed through MCP (Model Context Protocol) HTTP Streamable interface
-- **Standard Protocol**: Compatible with any LLM client that supports MCP, including Claude Desktop, ChatGPT, and open-source clients like Cherry Studio, OpenWebUI
-- **Session Management**: Multi-session support with isolated environments for concurrent LLM interactions
+EdgeBox exposes all its capabilities through the MCP protocol, organized into three core modules for your LLM Agent.
 
-### Core Sandbox Capabilities
-- **Local Code Execution**: Run AI-generated code securely in isolated Docker containers
-- **File System Management**: Full filesystem access with create, read, write, and delete operations
-- **Multi-language Support**: Execute Python, JavaScript, and other languages in isolated environments
-- **Container Orchestration**: Automated Docker container lifecycle management
+### 1. 💻 Full Desktop Environment (Computer Use)
+- **VNC Remote Desktop**: Access a complete, interactive Ubuntu desktop environment.
+- **Pre-installed Applications**: Comes with Google Chrome, VS Code, and other essential tools out of the box.
+- **GUI Automation**: Your agent can programmatically control the mouse and keyboard to interact with any desktop application.
+- **Visual Perception**: Built-in screenshot capabilities provide visual context to the agent, enabling it to "see" and react to the GUI.
 
-### Desktop Environment
-- **VNC Integration**: Full desktop GUI access through integrated VNC viewer
-- **Application Support**: Pre-configured with Chrome, VS Code, and other desktop applications
-- **Mouse & Keyboard Control**: Programmatic control of desktop interactions
-- **Screenshot Capabilities**: Built-in screenshot functionality for GUI automation
+<div align="center">
+  <img src="assets/screenshots/vnc.gif" alt="VNC Desktop Environment Demo" width="800" />
+  <p><em>An interactive VNC session with VS Code and a browser.</em></p>
+</div>
 
-### Advanced Features
-- **MCP Server Integration**: Model Context Protocol server for seamless LLM integration
-- **Resource Management**: Configurable CPU cores and memory limits for containers
-- **Session Management**: Multiple concurrent sandbox sessions with isolation
+### 2. 🐚 Complete Code Interpreter & Shell
+- **Secure Code Execution**: Safely run AI-generated code in an isolated Docker container.
+- **Full Shell Access**: A fully-featured `bash` terminal allows the execution of any Linux command.
+- **Isolated Filesystem**: Each session gets a separate filesystem with full support for creating, reading, writing, and deleting files.
+- **Multi-language Support**: Native support for Python, JavaScript (Node.js), and other runtimes.
+
+### 3. 🔗 Seamless LLM Agent Integration (via MCP)
+- **Standardized Protocol**: All sandbox features are exposed via the **MCP (Model Context Protocol)** HTTP interface.
+- **Broad Client Compatibility**: Easily connect to any LLM client that supports MCP, such as Claude Desktop, OpenWebUI, LobeChat, and more.
+- **Multi-Session Management**: Create and manage multiple, isolated sandbox sessions concurrently using the `x-session-id` header.
 
 ## 🏗️ Architecture
 
-EdgeBox is built with:
+EdgeBox is designed to provide a seamless and powerful local execution environment for LLM agents.
+
+**[LLM Agent (Claude, GPT, etc.)]** `<- MCP (HTTP Stream) ->` **[EdgeBox App]** `<- Docker API ->` **[Isolated Sandbox Container (Desktop + Shell)]**
+
 - **Frontend**: Electron + React + TypeScript + Tailwind CSS
-- **Backend**: Node.js with Docker API integration
-- **Containerization**: Docker for secure sandbox isolation
-- **UI Components**: Radix UI components with custom styling
+- **Backend**: Node.js + Dockerode (for Docker API)
+- **Containerization**: Docker
+- **UI Components**: Radix UI
 
 ## 📋 Prerequisites
 
-- **Docker Desktop**: Must be installed and running
+- **Docker Desktop**: Must be installed and running.
 
 ## 🛠️ Installation
 
-1. **Download EdgeBox**
-   Download the latest release for your platform from the [Releases page](https://github.com/BIGPPWONG/edgebox/releases)
+1.  **Download EdgeBox**
+    Download the latest release for your platform from the [Releases page](https://github.com/BIGPPWONG/edgebox/releases).
 
-2. **Install Docker Desktop**
-   Ensure Docker Desktop is installed and running before starting EdgeBox.
+2.  **Install & Run Docker Desktop**
+    Ensure Docker Desktop is installed and running before starting EdgeBox.
 
-3. **Run EdgeBox**
-   - **Windows**: Run `EdgeBox.exe`
-   - **macOS**: Open `EdgeBox.app`
-   - **Linux**: Run the AppImage or install the `.deb`/`.rpm` package
-
+3.  **Run EdgeBox**
+    - **Windows**: Run `EdgeBox.exe`
+    - **macOS**: Open `EdgeBox.app`
+    - **Linux**: Run the AppImage or install the `.deb`/`.rpm` package.
 
 ## 🎯 Usage
 
 ### Quick Start
-1. **Launch EdgeBox** and ensure Docker is running
-2. **Check Dashboard** - Verify all components (Docker, MCP Server) are healthy and running
-3. **Configure MCP Client** - Add EdgeBox to your LLM client using MCP configuration
+1.  Launch EdgeBox and ensure Docker is running.
+2.  Check the dashboard to verify all components (Docker, MCP Server) are healthy.
+3.  Add the EdgeBox MCP configuration to your LLM client.
 
 ### MCP Client Configuration
 
-Add EdgeBox to your LLM client by adding this configuration:
+Add EdgeBox to your LLM client with this configuration:
 
 ```json
 {
   "mcpServers": {
     "edgebox": {
-      "url": "http://localhost:8888/mcp",
+      "url": "http://localhost:8888/mcp"
     }
   }
 }
-```
+````
 
-### Using EdgeBox with LLMs
-Once configured, you can ask your LLM to:
-- Execute Python/JavaScript code in isolated containers
-- Create and manipulate files in the sandbox
-- Access desktop applications through VNC
-- Manage multiple concurrent sandbox sessions
+### Instructing Your LLM Agent
 
-**Example prompts:**
-- "Run this Python script and show me the output"
-- "Create a data visualization and open it in the desktop browser"
-- "Install a package and test it in the sandbox environment"
+Once configured, you can give your LLM agent natural language instructions like:
+
+  - **Code Execution**: *"Write a Python script to analyze this CSV file and show me the output."*
+  - **File Operations**: *"Create a new folder called 'project', and inside it, create a file named `main.py`."*
+  - **Computer Use**: *"Open the browser, navigate to 'github.com', search for 'EdgeBox', and then take a screenshot for me."*
 
 ### Multi-Session Concurrent Sandboxes
 
-EdgeBox supports running multiple isolated sandbox sessions concurrently through session management:
+Easily manage multiple isolated environments by specifying an `x-session-id` in your MCP request headers.
 
-**Default Behavior:**
-- Without specifying a session ID, all requests share a single `default_session` sandbox
-- This is suitable for single-user scenarios or when isolation isn't required
-
-**Session Isolation:**
-- To create separate sandbox environments, specify the `x-session-id` header in your MCP configuration
-- Each unique session ID gets its own isolated Docker container with independent filesystem, runtime, and processes
-
-**MCP Configuration for Multiple Sessions:**
+**Example configuration for different tasks:**
 
 ```json
 {
   "mcpServers": {
     "edgebox-default": {
-      "url": "http://localhost:8888"
+      "url": "http://localhost:8888/mcp"
     },
     "edgebox-data-analysis": {
-      "url": "http://localhost:8888",
+      "url": "http://localhost:8888/mcp",
       "headers": {
         "x-session-id": "data-analysis"
       }
     },
     "edgebox-web-scraping": {
-      "url": "http://localhost:8888",
+      "url": "http://localhost:8888/mcp",
       "headers": {
         "x-session-id": "web-scraping"
       }
@@ -146,53 +164,30 @@ EdgeBox supports running multiple isolated sandbox sessions concurrently through
 }
 ```
 
-**Use Cases:**
-- **Multiple Projects**: Isolate different projects with custom session IDs
-- **Team Collaboration**: Each team member uses their own session ID
-- **Clean Environments**: Start fresh by switching to a new session ID
-
-### Configuration
-Access settings to configure:
-- MCP server port (default: 8888)
-- Docker resource limits (CPU cores, memory)
-- GUI tools enablement
-
-### Docker Integration
-EdgeBox includes a bundled sandbox Docker image that provides:
-- Ubuntu-based environment
-- Python runtime with scientific computing packages
-- Node.js runtime
-- Desktop environment with VNC server
-- Pre-installed development tools
-
 ## 🔐 Security
 
-- **Container Isolation**: Each sandbox runs in an isolated Docker container
-- **Resource Limits**: Configurable CPU and memory constraints
-- **Network Isolation**: Controlled network access through port forwarding
-- **File System Isolation**: Sandboxed file system access
+  - **Container Isolation**: Every sandbox session runs in a separate Docker container.
+  - **Resource Limits**: Configurable CPU and memory constraints prevent resource abuse.
+  - **Network Isolation**: Container networking is controlled to protect the host machine.
 
 ## 📄 License
 
-see the [LICENSE](LICENSE) file for details.
+See the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- **E2B Team**: For the original open-source E2B code interpreter project
-- **Docker**: For containerization technology
-- **Electron**: For cross-platform desktop application framework
+  - **E2B Team**: For creating the fantastic open-source E2B Code Interpreter project that inspired EdgeBox.
+  - **Docker**: For the powerful containerization technology.
+  - **Electron**: For making cross-platform desktop apps possible.
 
 ## 🔗 Related Projects
 
-- [E2B Code Interpreter](https://github.com/e2b-dev/code-interpreter) - Original cloud-based sandbox
-- [E2B Desktop](https://github.com/e2b-dev/desktop) - Official E2B desktop sandbox
-- [FastMCP](https://github.com/jlowin/fastmcp) - Model Context Protocol implementation
+  - [E2B Code Interpreter](https://github.com/e2b-dev/code-interpreter) - The original project that served as our foundation.
+  - [FastMCP](https://github.com/jlowin/fastmcp) - An implementation of the Model Context Protocol (MCP).
 
 ## 📞 Support
 
-- **Issues**: Report bugs and feature requests on [GitHub Issues](https://github.com/BIGPPWONG/edgebox/issues)
-- **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/BIGPPWONG/edgebox/discussions)
+  - **Issues**: Report bugs and feature requests on [GitHub Issues](https://github.com/BIGPPWONG/edgebox/issues).
+  - **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/BIGPPWONG/edgebox/discussions).
 
----
-
-**EdgeBox** - Bringing the power of E2B sandboxes to your local environment. Perfect for AI agent development, code interpretation, and secure code execution.
+<!-- end list -->

@@ -30,7 +30,7 @@ RUN apt-get update && \
         # VNC and streaming:
         x11vnc net-tools netcat-openbsd \
         # Standard applications:
-        x11-apps libreoffice xpdf gedit xpaint tint2 galculator pcmanfm \
+        x11-apps xpdf gedit xpaint tint2 galculator pcmanfm \
         # Dependencies for later installations:
         apt-transport-https ca-certificates gnupg \
         socat supervisor \
@@ -52,6 +52,27 @@ RUN apt-get update && \
     apt-get autoremove -y && \
     apt-get autoclean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache
+
+# Install LibreOffice from official website
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+        "amd64") LO_ARCH="x86_64" ;; \
+        "arm64") LO_ARCH="aarch64" ;; \
+        *) echo "Unsupported architecture: $TARGETARCH" && exit 1 ;; \
+    esac && \
+    wget -O /tmp/libreoffice.tar.gz "https://mirrors.ustc.edu.cn/tdf/libreoffice/stable/25.8.1/deb/${LO_ARCH}/LibreOffice_25.8.1_Linux_${LO_ARCH}_deb.tar.gz" && \
+    cd /tmp && \
+    tar -xzf libreoffice.tar.gz && \
+    cd LibreOffice_*/DEBS && \
+    dpkg -i *.deb || true && \
+    apt-get update && \
+    apt-get install -f -y && \
+    # Clean up
+    rm -rf /tmp/LibreOffice_* /tmp/libreoffice.tar.gz && \
+    apt-get autoremove -y && \
+    apt-get autoclean && \
+    rm -rf /var/lib/apt/lists/*
+
 
 # User applications:
 
@@ -118,6 +139,7 @@ RUN printf '#!/bin/bash\necho "Starting Chromium with remote debugging on 0.0.0.
 RUN echo '#!/bin/bash\n# 启动supervisord服务\nsudo /usr/bin/supervisord -c /etc/supervisor/supervisord.conf &' > /usr/local/bin/start-supervisord.sh && \
     chmod +x /usr/local/bin/start-supervisord.sh && \
     echo "[Desktop Entry]\nType=Application\nName=Supervisord\nExec=/usr/local/bin/start-supervisord.sh\nHidden=false\nNoDisplay=false\nX-GNOME-Autostart-enabled=true" > /home/user/.config/autostart/supervisord.desktop && \
+    chmod +x /home/user/.config/autostart/supervisord.desktop && \
     chown -R user:user /home/user/.config/autostart
 
 # Install VS Code (optimized single layer)
@@ -152,6 +174,7 @@ RUN mkdir -p /home/user/.config/xfce4/xfconf/xfce-perchannel-xml/ && \
     # Override system Chromium desktop entry to use custom launcher
     mkdir -p /home/user/.local/share/applications && \
     echo "[Desktop Entry]\nVersion=1.0\nType=Application\nName=Chromium\nComment=Web Browser with Remote Debugging\nExec=/usr/local/bin/chromium\nIcon=chromium\nTerminal=false\nCategories=Network;WebBrowser;\nMimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;x-scheme-handler/chrome;video/webm;application/x-xpinstall;\nActions=NewWindow;NewPrivateWindow;" > /home/user/.local/share/applications/chromium.desktop && \
+    chmod +x /home/user/.local/share/applications/chromium.desktop && \
     # Set Chromium as default web browser
     echo "[Default Applications]\ntext/html=chromium.desktop\ntext/xml=chromium.desktop\napplication/xhtml+xml=chromium.desktop\napplication/xml=chromium.desktop\napplication/rss+xml=chromium.desktop\napplication/rdf+xml=chromium.desktop\nimage/gif=chromium.desktop\nimage/jpeg=chromium.desktop\nimage/png=chromium.desktop\nx-scheme-handler/http=chromium.desktop\nx-scheme-handler/https=chromium.desktop\nx-scheme-handler/ftp=chromium.desktop\nx-scheme-handler/chrome=chromium.desktop\nvideo/webm=chromium.desktop\napplication/x-xpinstall=chromium.desktop" > /home/user/.config/mimeapps.list && \
     chown -R user:user /home/user/.config /home/user/.local
@@ -352,26 +375,6 @@ ENV DISPLAY=:0
 RUN apt-get update && apt-get install -y dbus-x11 && \
     rm -rf /var/lib/apt/lists/*
 
-RUN apt purge -y libreoffice*
-# Install LibreOffice from official website
-ARG TARGETARCH
-RUN case "$TARGETARCH" in \
-        "amd64") LO_ARCH="x86_64" ;; \
-        "arm64") LO_ARCH="aarch64" ;; \
-        *) echo "Unsupported architecture: $TARGETARCH" && exit 1 ;; \
-    esac && \
-    wget -O /tmp/libreoffice.tar.gz "https://mirrors.ustc.edu.cn/tdf/libreoffice/stable/25.8.1/deb/${LO_ARCH}/LibreOffice_25.8.1_Linux_${LO_ARCH}_deb.tar.gz" && \
-    cd /tmp && \
-    tar -xzf libreoffice.tar.gz && \
-    cd LibreOffice_*/DEBS && \
-    dpkg -i *.deb || true && \
-    apt-get update && \
-    apt-get install -f -y && \
-    # Clean up
-    rm -rf /tmp/LibreOffice_* /tmp/libreoffice.tar.gz && \
-    apt-get autoremove -y && \
-    apt-get autoclean && \
-    rm -rf /var/lib/apt/lists/*
 
 
 
