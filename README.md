@@ -39,6 +39,9 @@
     - [1. 💻 Full Desktop Environment (Computer Use)](#1--full-desktop-environment-computer-use)
     - [2. 🐚 Complete Code Interpreter \& Shell](#2--complete-code-interpreter--shell)
     - [3. 🔗 Seamless LLM Agent Integration (via MCP)](#3--seamless-llm-agent-integration-via-mcp)
+  - [🛠️ Available MCP Tools](#️-available-mcp-tools)
+    - [📟 Core Tools (CLI Mode - Always Available)](#-core-tools-cli-mode---always-available)
+    - [🖱️ Desktop Tools (GUI Mode - When GUI Tools Enabled)](#️-desktop-tools-gui-mode---when-gui-tools-enabled)
   - [🏗️ Architecture](#️-architecture)
   - [📋 Prerequisites](#-prerequisites)
   - [🛠️ Installation](#️-installation)
@@ -78,6 +81,58 @@ EdgeBox exposes all its capabilities through the MCP protocol, organized into th
 - **Standardized Protocol**: All sandbox features are exposed via the **MCP (Model Context Protocol)** HTTP interface.
 - **Broad Client Compatibility**: Easily connect to any LLM client that supports MCP, such as Claude Desktop, OpenWebUI, LobeChat, and more.
 - **Multi-Session Management**: Create and manage multiple, isolated sandbox sessions concurrently using the `x-session-id` header.
+
+## 🛠️ Available MCP Tools
+
+EdgeBox exposes its capabilities through MCP tools, organized into two categories:
+
+### 📟 Core Tools (CLI Mode - Always Available)
+
+**Code Execution Tools** - Execute code in various languages:
+- `execute_python` - Execute Python code in isolated environment
+- `execute_typescript` - Execute TypeScript/JavaScript code
+- `execute_r` - Execute R code for statistical analysis
+- `execute_java` - Execute Java code
+- `execute_bash` - Execute Bash scripts
+
+**Shell Commands** - Interact with the Linux environment:
+- `shell_run` - Run shell commands (stateful, persistent environment)
+- `shell_run_background` - Run commands in background with process management
+
+**Filesystem Operations** - Manage files and directories:
+- `fs_list` - List files in directories
+- `fs_read` - Read file contents
+- `fs_write` - Write content to files
+- `fs_info` - Get file metadata and information
+- `fs_watch` - Monitor directory changes in real-time
+
+### 🖱️ Desktop Tools (GUI Mode - When GUI Tools Enabled)
+
+**Mouse Controls** - Programmatic mouse interaction:
+- `desktop_mouse_click` - Perform mouse clicks (left/right/middle)
+- `desktop_mouse_double_click` - Double-click actions
+- `desktop_mouse_move` - Move cursor to coordinates
+- `desktop_mouse_scroll` - Scroll up/down with configurable amount
+- `desktop_mouse_drag` - Drag from one position to another
+
+**Keyboard Controls** - Text input and key combinations:
+- `desktop_keyboard_type` - Type text with clipboard support for non-ASCII
+- `desktop_keyboard_press` - Press specific keys (Return, Escape, Tab, etc.)
+- `desktop_keyboard_combo` - Execute key combinations (Ctrl+C, Alt+Tab, etc.)
+
+**Window Management** - Control desktop applications:
+- `desktop_get_windows` - List all windows with titles and IDs
+- `desktop_switch_window` - Focus specific windows
+- `desktop_maximize_window` - Maximize windows
+- `desktop_minimize_window` - Minimize windows
+- `desktop_resize_window` - Resize windows to specific dimensions
+
+**Visual & Application Control**:
+- `desktop_screenshot` - Capture desktop screenshots (PNG format)
+- `desktop_launch_app` - Launch applications by name
+- `desktop_wait` - Add delays between actions
+
+> **Note**: Desktop tools are only available when GUI Tools are enabled in EdgeBox settings. Core tools are always available regardless of GUI settings.
 
 ## 🏗️ Architecture
 
