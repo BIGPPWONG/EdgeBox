@@ -40,6 +40,8 @@ jobs:
           docker container prune -f
           docker volume prune -f
           df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
       - name: Save Docker image to tar.gz
         run: |
