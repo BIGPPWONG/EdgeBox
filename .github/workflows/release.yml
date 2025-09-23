@@ -57,19 +57,17 @@ jobs:
 
   release:
     needs: build-docker-images
-    runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
         include:
           # macOS (Intel & Apple Silicon)
-          - os: macos-13
+          - runner: macos-13
             artifact_name: EdgeBox-macos-x64
             artifact_path: |
               out/make/**/*.dmg
               out/make/**/*.zip
             arch: amd64
-          - os: macos-latest
+          - runner: macos-14
             artifact_name: EdgeBox-macos-arm64
             artifact_path: |
               out/make/**/*.dmg
@@ -77,13 +75,13 @@ jobs:
             arch: arm64
 
           # Windows (x64 & ARM64)
-          - os: windows-latest
+          - runner: windows-11
             artifact_name: EdgeBox-windows-x64
             artifact_path: |
               out/make/**/*.exe
               out/make/**/*.msi
             arch: amd64
-          - os: windows-latest
+          - runner: windows-11-arm
             artifact_name: EdgeBox-windows-arm64
             artifact_path: |
               out/make/**/*.exe
@@ -91,20 +89,21 @@ jobs:
             arch: arm64
 
           # Linux (x64 & ARM64)
-          - os: ubuntu-latest
+          - runner: ubuntu-22.04
             artifact_name: EdgeBox-linux-x64
             artifact_path: |
               out/make/**/*.AppImage
               out/make/**/*.deb
               out/make/**/*.rpm
             arch: amd64
-          - os: ubuntu-latest
+          - runner: ubuntu-22.04-arm
             artifact_name: EdgeBox-linux-arm64
             artifact_path: |
               out/make/**/*.AppImage
               out/make/**/*.deb
               out/make/**/*.rpm
             arch: arm64
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout code
