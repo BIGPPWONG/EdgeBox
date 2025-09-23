@@ -38,12 +38,11 @@ jobs:
           mkdir -p docker-images
           docker save e2b-sandbox:latest | gzip > docker-images/e2b-sandbox-${{ matrix.arch }}.tar.gz
 
-      - name: Upload to temporary storage
-        uses: actions/upload-artifact@v4
+      - name: Cache Docker image
+        uses: actions/cache/save@v4
         with:
-          name: docker-image-${{ matrix.arch }}
           path: docker-images/e2b-sandbox-${{ matrix.arch }}.tar.gz
-          retention-days: 1
+          key: docker-image-${{ matrix.arch }}-${{ github.run_id }}
 
   release:
     needs: build-docker-images
@@ -114,11 +113,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download Docker image
-        uses: actions/download-artifact@v4
+      - name: Restore Docker image from cache
+        uses: actions/cache/restore@v4
         with:
-          name: docker-image-${{ matrix.arch }}
-          path: sandbox_images
+          path: sandbox_images/e2b-sandbox-${{ matrix.arch }}.tar.gz
+          key: docker-image-${{ matrix.arch }}-${{ github.run_id }}
 
       - name: Rename Docker image to expected filename
         run: |
