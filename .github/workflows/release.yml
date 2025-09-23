@@ -6,8 +6,12 @@ on:
       - "v*"
   workflow_dispatch:
 
+permissions:
+  contents: write  # Grant write access to repository contents
+
 jobs:
   build-docker-images:
+    if: false  # Temporarily disable this job
     strategy:
       fail-fast: false
       matrix:
@@ -57,7 +61,7 @@ jobs:
           enableCrossOsArchive: true
 
   release:
-    needs: build-docker-images
+    # needs: build-docker-images
     continue-on-error: true
     strategy:
       fail-fast: false
