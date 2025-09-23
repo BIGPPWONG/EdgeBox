@@ -18,8 +18,9 @@ const config: ForgeConfig = {
       osxSign: {
         identity: '-',  // adhoc signing
         'hardened-runtime': true,
-        'entitlements': 'entitlements.plist',
-        'entitlements-inherit': 'entitlements.plist'
+        'entitlements': './entitlements.plist',
+        'entitlements-inherit': './entitlements.plist',
+        'sign-addl': []  // 避免对额外资源签名
       },
       osxNotarize: false
     }),
