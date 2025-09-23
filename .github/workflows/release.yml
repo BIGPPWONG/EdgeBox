@@ -33,15 +33,22 @@ jobs:
             --load \
             .
 
+      - name: Clean up disk space
+        run: |
+          df -h
+          docker system prune -af --volumes
+          df -h
+
       - name: Save Docker image to tar.gz
         run: |
-          mkdir -p docker-images
-          docker save e2b-sandbox:latest | gzip > docker-images/e2b-sandbox-${{ matrix.arch }}.tar.gz
+          mkdir -p sandbox_images
+          docker save e2b-sandbox:latest | gzip -1 > sandbox_images/e2b-sandbox-${{ matrix.arch }}.tar.gz
+          ls -lh sandbox_images/
 
       - name: Cache Docker image
         uses: actions/cache/save@v4
         with:
-          path: docker-images/e2b-sandbox-${{ matrix.arch }}.tar.gz
+          path: sandbox_images/e2b-sandbox-${{ matrix.arch }}.tar.gz
           key: docker-image-${{ matrix.arch }}-${{ github.run_id }}
 
   release:
