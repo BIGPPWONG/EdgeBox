@@ -62,6 +62,7 @@ jobs:
 
   release:
     # needs: build-docker-images
+    if: false  # Temporarily disable this job
     continue-on-error: true
     strategy:
       fail-fast: false
