@@ -36,7 +36,9 @@ jobs:
       - name: Clean up disk space
         run: |
           df -h
-          docker system prune -af --volumes
+          docker image prune -f
+          docker container prune -f
+          docker volume prune -f
           df -h
 
       - name: Save Docker image to tar.gz
