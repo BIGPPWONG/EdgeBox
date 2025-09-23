@@ -11,7 +11,6 @@ permissions:
 
 jobs:
   build-docker-images:
-    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -61,7 +60,7 @@ jobs:
           enableCrossOsArchive: true
 
   release:
-    # needs: build-docker-images
+    needs: build-docker-images
     continue-on-error: true
     strategy:
       fail-fast: false
@@ -141,19 +140,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # - name: Restore Docker image from cache
-      #   uses: actions/cache/restore@v4
-      #   with:
-      #     path: e2b-sandbox-${{ matrix.arch }}.tar.gz
-      #     key: docker-image-${{ matrix.arch }}-${{ github.run_id }}
-      #     enableCrossOsArchive: true
+      - name: Restore Docker image from cache
+        uses: actions/cache/restore@v4
+        with:
+          path: e2b-sandbox-${{ matrix.arch }}.tar.gz
+          key: docker-image-${{ matrix.arch }}-${{ github.run_id }}
+          enableCrossOsArchive: true
 
       - name: Create sandbox_images directory and rename Docker image
         shell: bash
         run: |
           mkdir -p sandbox_images
-
-        # mv e2b-sandbox-${{ matrix.arch }}.tar.gz sandbox_images/e2b-sandbox-latest.tar.gz
+          mv e2b-sandbox-${{ matrix.arch }}.tar.gz sandbox_images/e2b-sandbox-latest.tar.gz
 
 
       - name: Make application
@@ -168,7 +166,7 @@ jobs:
           path: ${{ matrix.artifact_path }}
 
   create-release:
-    # needs: release
+    needs: release
     runs-on: ubuntu-latest
 
     steps:
