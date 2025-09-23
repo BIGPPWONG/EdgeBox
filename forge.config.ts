@@ -18,6 +18,7 @@ const config: ForgeConfig = {
       osxSign: {
         identity: '-',  // adhoc signing
       },
+      osxNotarize: false
     }),
   },
   rebuildConfig: {},
