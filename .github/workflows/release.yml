@@ -11,7 +11,6 @@ permissions:
 
 jobs:
   build-docker-images:
-    if: false  # Temporarily disable this job
     strategy:
       fail-fast: false
       matrix:
@@ -61,8 +60,7 @@ jobs:
           enableCrossOsArchive: true
 
   release:
-    # needs: build-docker-images
-    if: false  # Temporarily disable this job
+    needs: build-docker-images
     continue-on-error: true
     strategy:
       fail-fast: false
