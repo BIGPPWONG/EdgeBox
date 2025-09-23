@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build-docker-images:
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -60,7 +61,7 @@ jobs:
           enableCrossOsArchive: true
 
   release:
-    needs: build-docker-images
+    # needs: build-docker-images
     continue-on-error: true
     strategy:
       fail-fast: false
@@ -112,6 +113,15 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
+      - name: Clean up disk space
+        run: |
+          df -h
+          docker image prune -f
+          docker container prune -f
+          docker volume prune -f
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -129,18 +139,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Restore Docker image from cache
-        uses: actions/cache/restore@v4
-        with:
-          path: e2b-sandbox-${{ matrix.arch }}.tar.gz
-          key: docker-image-${{ matrix.arch }}-${{ github.run_id }}
-          enableCrossOsArchive: true
+      # - name: Restore Docker image from cache
+      #   uses: actions/cache/restore@v4
+      #   with:
+      #     path: e2b-sandbox-${{ matrix.arch }}.tar.gz
+      #     key: docker-image-${{ matrix.arch }}-${{ github.run_id }}
+      #     enableCrossOsArchive: true
 
       - name: Create sandbox_images directory and rename Docker image
         shell: bash
         run: |
           mkdir -p sandbox_images
-          mv e2b-sandbox-${{ matrix.arch }}.tar.gz sandbox_images/e2b-sandbox-latest.tar.gz
+
+        # mv e2b-sandbox-${{ matrix.arch }}.tar.gz sandbox_images/e2b-sandbox-latest.tar.gz
 
 
       - name: Make application
@@ -171,19 +182,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
 
       - name: Upload Release Assets
         run: |
-          for artifact in artifacts/**/*; do
-            if [ -f "$artifact" ]; then
-              asset_name=$(basename "$artifact")
-              echo "Uploading $asset_name"
-              gh release upload "${{ github.ref_name }}" "$artifact" --clobber --repo "${{ github.repository }}"
-            fi
+          find artifacts -type f | while read artifact; do
+            asset_name=$(basename "$artifact")
+            echo "Uploading $asset_name"
+            gh release upload "${{ github.ref_name }}" "$artifact" --clobber --repo "${{ github.repository }}"
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
