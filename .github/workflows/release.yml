@@ -9,6 +9,7 @@ on:
 jobs:
   build-docker-images:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - arch: amd64
@@ -57,7 +58,9 @@ jobs:
 
   release:
     needs: build-docker-images
+    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         include:
           # macOS (Intel & Apple Silicon)
@@ -81,12 +84,12 @@ jobs:
               out/make/**/*.exe
               out/make/**/*.msi
             arch: amd64
-          - runner: windows-11-arm
-            artifact_name: EdgeBox-windows-arm64
-            artifact_path: |
-              out/make/**/*.exe
-              out/make/**/*.msi
-            arch: arm64
+          # - runner: windows-11-arm
+          #   artifact_name: EdgeBox-windows-arm64
+          #   artifact_path: |
+          #     out/make/**/*.exe
+          #     out/make/**/*.msi
+          #   arch: arm64
 
           # Linux (x64 & ARM64)
           - runner: ubuntu-22.04
