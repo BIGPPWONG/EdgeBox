@@ -1,5 +1,7 @@
 # EdgeBox - The Local Desktop Sandbox for AI Agents
 
+[![Release](https://github.com/BIGPPWONG/EdgeBox/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/BIGPPWONG/EdgeBox/actions/workflows/release.yml)
+
 <div align="center">
   <img src="assets/icon/icon.png" alt="EdgeBox Logo" width="128" height="128" />
   <br/>
