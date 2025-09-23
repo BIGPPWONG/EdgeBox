@@ -6,6 +6,9 @@ on:
       - "v*"
   workflow_dispatch:
 
+permissions:
+  contents: write  # Grant write access to repository contents
+
 jobs:
   build-docker-images:
     strategy:
@@ -109,6 +112,17 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
+      - name: Clean up disk space
+        if: runner.os == 'Linux'
+        run: |
+          df -h
+          docker image prune -f
+          docker container prune -f
+          docker volume prune -f
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -168,19 +182,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
 
       - name: Upload Release Assets
         run: |
-          for artifact in artifacts/**/*; do
-            if [ -f "$artifact" ]; then
-              asset_name=$(basename "$artifact")
-              echo "Uploading $asset_name"
-              gh release upload "${{ github.ref_name }}" "$artifact" --clobber --repo "${{ github.repository }}"
-            fi
+          find artifacts -type f | while read artifact; do
+            asset_name=$(basename "$artifact")
+            echo "Uploading $asset_name"
+            gh release upload "${{ github.ref_name }}" "$artifact" --clobber --repo "${{ github.repository }}"
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

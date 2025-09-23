@@ -13,7 +13,17 @@ const config: ForgeConfig = {
     extraResource: [
       './sandbox_images'
     ],
-    icon: './assets/icon/icon' // no file extension required
+    icon: './assets/icon/icon', // no file extension required
+    ...(process.platform === 'darwin' && {
+      osxSign: {
+        identity: '-',  // adhoc signing
+        'hardened-runtime': true,
+        'entitlements': './entitlements.plist',
+        'entitlements-inherit': './entitlements.plist',
+        'sign-addl': []  // 避免对额外资源签名
+      },
+      osxNotarize: false
+    }),
   },
   rebuildConfig: {},
   outDir: 'out', // 指定统一的输出目录
