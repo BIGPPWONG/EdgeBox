@@ -8,8 +8,7 @@
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make && npm run postmake",
-    "postmake": "node -e \"if (process.platform === 'darwin') require('child_process').execSync('npm run fix-macos-codesign', {stdio: 'inherit'})\"",
-    "fix-macos-codesign": "find out -name '*.app' -type d -exec codesign --force --deep --sign '-' {} \\;",
+    "postmake": "node scripts/fix-macos-codesign.js",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx ."
   },
