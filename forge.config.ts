@@ -17,6 +17,7 @@ const config: ForgeConfig = {
     ...(process.platform === 'darwin' && {
       osxSign: {
         identity: '-',  // adhoc signing
+        'hardened-runtime': true,
       },
       osxNotarize: false
     }),
