@@ -78,7 +78,7 @@ jobs:
             arch: arm64
 
           # Windows (x64 & ARM64)
-          - runner: windows-11
+          - runner: windows-latest
             artifact_name: EdgeBox-windows-x64
             artifact_path: |
               out/make/**/*.exe
