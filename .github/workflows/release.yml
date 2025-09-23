@@ -39,21 +39,21 @@ jobs:
           docker image prune -f
           docker container prune -f
           docker volume prune -f
-          df -h
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
 
       - name: Save Docker image to tar.gz
         run: |
-          mkdir -p sandbox_images
-          docker save e2b-sandbox:latest | gzip -1 > sandbox_images/e2b-sandbox-${{ matrix.arch }}.tar.gz
-          ls -lh sandbox_images/
+          docker save e2b-sandbox:latest | gzip -1 > e2b-sandbox-${{ matrix.arch }}.tar.gz
+          ls -lh e2b-sandbox-${{ matrix.arch }}.tar.gz
 
       - name: Cache Docker image
         uses: actions/cache/save@v4
         with:
-          path: sandbox_images/e2b-sandbox-${{ matrix.arch }}.tar.gz
+          path: e2b-sandbox-${{ matrix.arch }}.tar.gz
           key: docker-image-${{ matrix.arch }}-${{ github.run_id }}
+          enableCrossOsArchive: true
 
   release:
     needs: build-docker-images
@@ -127,13 +127,15 @@ jobs:
       - name: Restore Docker image from cache
         uses: actions/cache/restore@v4
         with:
-          path: sandbox_images/e2b-sandbox-${{ matrix.arch }}.tar.gz
+          path: e2b-sandbox-${{ matrix.arch }}.tar.gz
           key: docker-image-${{ matrix.arch }}-${{ github.run_id }}
+          enableCrossOsArchive: true
 
-      - name: Rename Docker image to expected filename
+      - name: Create sandbox_images directory and rename Docker image
+        shell: bash
         run: |
-          cd sandbox_images
-          mv e2b-sandbox-${{ matrix.arch }}.tar.gz e2b-sandbox-latest.tar.gz
+          mkdir -p sandbox_images
+          mv e2b-sandbox-${{ matrix.arch }}.tar.gz sandbox_images/e2b-sandbox-latest.tar.gz
 
 
       - name: Make application
