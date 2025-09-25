@@ -43,7 +43,7 @@ RUN apt-get update && \
     # Set the default terminal
     ln -sf /usr/bin/xfce4-terminal.wrapper /etc/alternatives/x-terminal-emulator && \
     # Install Python packages:
-    apt-get install -y python3-numpy && \
+    # apt-get install -y python3-numpy && \
     # Clone NoVNC and websockify:
     git clone -b e2b-desktop https://github.com/e2b-dev/noVNC.git /opt/noVNC && \
     ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html && \

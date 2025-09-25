@@ -24,7 +24,7 @@ const createWindow = (routePath?: string) => {
     width: routePath && routePath.startsWith('/vnc/') ? 1200 : 1200,
     height: routePath && routePath.startsWith('/vnc/') ? 800 : 800,
     transparent: true,
-    frame: false,
+    frame: true,
     title: routePath && routePath.startsWith('/vnc/') ? `VNC - ${routePath.split('/vnc/')[1]}` : APP_DISPLAY_NAME,
     icon: process.platform === 'darwin' ? undefined : nodePath.join(__dirname, '../assets/icon.png'),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',

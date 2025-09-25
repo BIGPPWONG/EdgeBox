@@ -187,12 +187,38 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Assets
+      - name: Prepare release assets with 7zip split
         run: |
+          # Create release_assets directory
+          mkdir -p release_assets
+
+          # Find all files and process each one
           find artifacts -type f | while read artifact; do
             asset_name=$(basename "$artifact")
-            echo "Uploading $asset_name"
-            gh release upload "${{ github.ref_name }}" "$artifact" --clobber --repo "${{ github.repository }}"
+            echo "Processing: $asset_name"
+
+            # Check file size in GB
+            file_size_gb=$(($(stat -c%s "$artifact") / 1024 / 1024 / 1024))
+
+            if [ $file_size_gb -ge 2 ]; then
+              echo "File larger than 2GB, splitting into volumes..."
+
+              # Split into 1.9GB parts (1900MB) to stay well under 2GB limit
+              7z a -tzip -v1900m "release_assets/${asset_name%.*}" "$artifact" > /dev/null
+
+              echo "Created parts:"
+              ls -la "release_assets/${asset_name%.*}".*
+            else
+              echo "File is under 2GB, copying directly"
+              cp "$artifact" "release_assets/"
+            fi
+          done
+
+      - name: Upload Release Assets
+        run: |
+          find release_assets -type f | while read asset; do
+            echo "Uploading $(basename "$asset")"
+            gh release upload "${{ github.ref_name }}" "$asset" --clobber --repo "${{ github.repository }}"
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -69,7 +69,7 @@ export const App: React.FC = () => {
   const ActiveComponent = menuItems.find(item => item.id === activeTab)?.component || Dashboard;
 
   return (
-    <div className="h-screen flex bg-transparent">
+    <div className="h-screen flex bg-slate-100">
       {/* 清理对话框 - 与app风格统一 */}
       <Dialog
         open={showCleanupDialog}
