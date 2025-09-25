@@ -28,15 +28,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build sandbox Docker image for ${{ matrix.arch }}
-        run: |
-          cd sandbox
-          docker buildx build \
-            --platform linux/${{ matrix.arch }} \
-            --tag e2b-sandbox:latest \
-            --load \
-            .
-
       - name: Clean up disk space
         run: |
           df -h
@@ -46,6 +37,15 @@ jobs:
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           df -h
+
+      - name: Build sandbox Docker image for ${{ matrix.arch }}
+        run: |
+          cd sandbox
+          docker buildx build \
+            --platform linux/${{ matrix.arch }} \
+            --tag e2b-sandbox:latest \
+            --load \
+            .
 
       - name: Save Docker image to tar.gz
         run: |
