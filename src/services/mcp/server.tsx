@@ -1,4 +1,5 @@
 import { FastMCP } from "fastmcp";
+import { imageContent } from "fastmcp";
 import { z } from "zod";
 import 'dotenv/config';
 import { Sandbox } from '@e2b/code-interpreter';
@@ -6,8 +7,113 @@ import { TcpForwarder } from '../tcp-forwarder';
 import { DockerManager } from '../docker-manager';
 import { SandboxManager } from '../sandbox-manager';
 import { DesktopController } from './DesktopController';
-
 import { SettingsManager } from "../settings-manager";
+
+// Monkey patch Sandbox initialization to fix EnvdApiClient headers issue
+function patchSandboxInitialization() {
+    try {
+        // We already have Sandbox imported directly, so we patch that
+        const OriginalSandbox = Sandbox;
+        const OriginalPrototype = Sandbox.prototype;
+
+        // Create patched wrapper for Sandbox.create
+        const originalCreate = OriginalSandbox.create;
+
+        (OriginalSandbox as any).create = async function create(...args: any[]) {
+            const sandbox = await originalCreate.apply(this, args);
+
+            // Apply patch after creation
+            if (sandbox && sandbox.connectionConfig?.headers && sandbox.envdApi) {
+                console.log(`[Sandbox Patch] Post-creation patching for`, args);
+
+                const OriginalEnvdApiClient = sandbox.envdApi.constructor;
+                const sessionHeaders = sandbox.connectionConfig.headers;
+
+                sandbox.envdApi = new OriginalEnvdApiClient(
+                    {
+                        apiUrl: sandbox.envdApiUrl,
+                        logger: (args[1] || args[0])?.logger,
+                        accessToken: sandbox.envdAccessToken,
+                        headers: {
+                            ...(sessionHeaders || {}),
+                            ...(sandbox.envdAccessToken ? { "X-Access-Token": sandbox.envdAccessToken } : {})
+                        }
+                    },
+                    { version: (args[1] || args[0])?.envdVersion }
+                );
+
+                // Patch filesystem module with new envdApi - recreate RPC transport properly
+                if (sandbox.files && sandbox.envdApi) {
+                    console.log(`[Sandbox Patch] Post-creation patching filesystem module`);
+
+                    try {
+                        // Access sandbox private properties - assuming they exist from the original constructor
+                        const envdApiUrl = (sandbox as any)['envdApiUrl'];
+                        const connectionConfig = (sandbox as any)['connectionConfig'];
+                        const envdAccessToken = (sandbox as any)['envdAccessToken'];
+                        const logger = (sandbox as any)['logger'];
+
+                        if (!envdApiUrl || !connectionConfig) {
+                            throw new Error('Sandbox properties not accessible for filesystem patching');
+                        }
+
+                        // Import required dependencies
+                        const { createConnectTransport } = require('@connectrpc/connect-web');
+                        const { createRpcLogger } = require('@e2b/code-interpreter');
+
+                        // Recreate RPC transport with complete configuration
+                        const rpcTransport = createConnectTransport({
+                            baseUrl: envdApiUrl,
+                            useBinaryFormat: false,
+                            interceptors: logger ? [createRpcLogger(logger)] : undefined,
+                            fetch: (url: string, options?: any) => {
+                                const headers = new Headers(connectionConfig.headers);
+
+                                if (options?.headers) {
+                                    new Headers(options.headers).forEach((value, key) =>
+                                        headers.append(key, value)
+                                    );
+                                }
+
+                                if (envdAccessToken) {
+                                    headers.append('X-Access-Token', envdAccessToken);
+                                }
+
+                                return fetch(url, {
+                                    ...options,
+                                    headers: headers,
+                                    redirect: 'follow',
+                                });
+                            },
+                        });
+
+                        const OriginalFilesystem = sandbox.files.constructor;
+                        sandbox.files = new OriginalFilesystem(
+                            rpcTransport,
+                            sandbox.envdApi,
+                            connectionConfig
+                        );
+
+                        console.log(`[Sandbox Patch] Post-creation: Successfully recreated filesystem module with new transport`);
+                    } catch (error) {
+                        console.error('[Sandbox Patch] Failed to patch filesystem module:', error);
+                        // Continue without patching filesystem - other functionality should still work
+                    }
+                }
+            }
+
+            return sandbox;
+        };
+
+        console.log('[Sandbox Patch] Successfully installed initialization patch');
+    } catch (error) {
+        console.error('Failed to setup sandbox initialization patch:', error);
+    }
+}
+
+// Apply patch as soon as this module is imported
+patchSandboxInitialization();
+
 // Settings manager will be injected from main process
 let settingsManager: SettingsManager | null = null;
 
@@ -570,13 +676,19 @@ function addGUITools(server: FastMCP) {
         parameters: z.object({}),
         execute: async (_, { session }) => {
             const desktop = await ensureDesktopController(session?.id);
+            console.log('Taking screenshot...');
             const imageData = await desktop.takeScreenshot();
+            console.log('Screenshot taken');
+            console.log(`Screenshot size: ${imageData.length} bytes`);
             // Convert Uint8Array to base64 for JSON serialization
-            const base64 = Buffer.from(imageData).toString('base64');
-            return JSON.stringify({
-                format: 'png',
-                data: base64,
-                size: imageData.length
+            // const base64 = Buffer.from(imageData).toString('base64');
+            // return JSON.stringify({
+            //     format: 'png',
+            //     data: base64,
+            //     size: imageData.length
+            // });
+            return imageContent({
+                buffer: Buffer.from(imageData, "base64"),
             });
         },
     });
