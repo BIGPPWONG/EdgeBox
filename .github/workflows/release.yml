@@ -196,7 +196,7 @@ jobs:
           mkdir -p release_assets
 
           # Clean up any existing split files first
-          rm -f release_assets/*.7z.*
+          rm -f release_assets/*.7z.* release_assets/*.zip.*
 
           echo "=== Processing artifacts ==="
           find artifacts -type f | while read artifact; do
@@ -212,11 +212,14 @@ jobs:
             if [ $file_size_gb -ge 2 ]; then
               echo "File larger than 2GB, splitting into volumes..."
 
+              # Ensure no leftover old files
+              rm -f "release_assets/${clean_name%.*}.zip" "release_assets/${clean_name%.*}.zip.*"
+
               # Split into 1.9GB parts (1900MB) to stay well under 2GB limit
-              7z a -tzip -v1900m -aoa "release_assets/${clean_name%.*}" "$artifact"
+              7z a -tzip -v1900m -aoa "release_assets/${clean_name%.*}.zip" "$artifact"
 
               echo "Created parts for $asset_name:"
-              ls -lh "release_assets/${clean_name%.*}".*
+              ls -lh "release_assets/${clean_name%.*}.zip".*
 
               # Delete original large file immediately after splitting to free space
               echo "Removing original large file: $artifact"
@@ -227,12 +230,15 @@ jobs:
 
             else
               echo "File is under 2GB, moving to release_assets"
-              mv "$artifact" "release_assets/"
+              # 确保目标目录没有旧文件
+              rm -f "release_assets/$clean_name"
+              mv "$artifact" "release_assets/$clean_name"
             fi
           done
 
           echo "=== Final disk usage ==="
           df -h .
+
 
       - name: Upload Release Assets
         run: |
