@@ -189,13 +189,22 @@ jobs:
 
       - name: Prepare release assets with 7zip split
         run: |
+          echo "=== Initial disk usage ==="
+          df -h .
+
           # Create release_assets directory
           mkdir -p release_assets
 
-          # Find all files and process each one
+          # Clean up any existing split files first
+          rm -f release_assets/*.7z.*
+
+          echo "=== Processing artifacts ==="
           find artifacts -type f | while read artifact; do
             asset_name=$(basename "$artifact")
             echo "Processing: $asset_name"
+
+            # Create a clean file name for 7zip (remove spaces and special chars)
+            clean_name=$(echo "$asset_name" | sed 's/[^a-zA-Z0-9._-]/_/g')
 
             # Check file size in GB
             file_size_gb=$(($(stat -c%s "$artifact") / 1024 / 1024 / 1024))
@@ -204,15 +213,26 @@ jobs:
               echo "File larger than 2GB, splitting into volumes..."
 
               # Split into 1.9GB parts (1900MB) to stay well under 2GB limit
-              7z a -tzip -v1900m "release_assets/${asset_name%.*}" "$artifact" > /dev/null
+              7z a -tzip -v1900m "release_assets/${clean_name%.*}" "$artifact"
 
-              echo "Created parts:"
-              ls -la "release_assets/${asset_name%.*}".*
+              echo "Created parts for $asset_name:"
+              ls -lh "release_assets/${clean_name%.*}".*
+
+              # Delete original large file immediately after splitting to free space
+              echo "Removing original large file: $artifact"
+              rm -f "$artifact"
+
+              echo "=== Disk usage after processing $asset_name ==="
+              df -h .
+
             else
-              echo "File is under 2GB, copying directly"
-              cp "$artifact" "release_assets/"
+              echo "File is under 2GB, moving to release_assets"
+              mv "$artifact" "release_assets/"
             fi
           done
+
+          echo "=== Final disk usage ==="
+          df -h .
 
       - name: Upload Release Assets
         run: |
