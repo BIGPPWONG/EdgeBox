@@ -213,7 +213,7 @@ jobs:
               echo "File larger than 2GB, splitting into volumes..."
 
               # Split into 1.9GB parts (1900MB) to stay well under 2GB limit
-              7z a -tzip -v1900m "release_assets/${clean_name%.*}" "$artifact"
+              7z a -tzip -v1900m -aoa "release_assets/${clean_name%.*}" "$artifact"
 
               echo "Created parts for $asset_name:"
               ls -lh "release_assets/${clean_name%.*}".*
