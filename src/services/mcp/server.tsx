@@ -577,9 +577,9 @@ function addGUITools(server: FastMCP) {
 
     server.addTool({
         name: "desktop_keyboard_press",
-        description: "Press a specific key",
+        description: "Press a specific key using xdotool key syntax",
         parameters: z.object({
-            key: z.string().describe("Key to press (e.g., 'Return', 'Escape', 'Tab', 'space')"),
+            key: z.string().describe("Key to press using xdotool key syntax. Common keys: 'Return', 'Escape', 'Tab', 'space', 'BackSpace', 'Delete', 'Left', 'Right', 'Up', 'Down', 'F1'-'F12', 'Page_Up', 'Page_Down', 'Home', 'End'. Single characters: 'a', '1', '!'. For a-zA-Z and 0-9, you can use the character directly."),
         }),
         execute: async (args, { session }) => {
             const desktop = await ensureDesktopController(session?.id);
@@ -590,9 +590,9 @@ function addGUITools(server: FastMCP) {
 
     server.addTool({
         name: "desktop_keyboard_combo",
-        description: "Press key combination/shortcut",
+        description: "Press key combination/shortcut using xdotool key syntax",
         parameters: z.object({
-            keys: z.array(z.string()).describe("Array of keys for combination (e.g., ['ctrl', 'c'])"),
+            keys: z.array(z.string()).describe("Array of keys for combination using xdotool key syntax (e.g., ['ctrl', 'c'], ['alt', 'Tab'], ['shift', 'F1']). Each key should use xdotool key format: 'ctrl', 'alt', 'shift', 'super' for modifiers, plus any valid key from desktop_keyboard_press"),
         }),
         execute: async (args, { session }) => {
             const desktop = await ensureDesktopController(session?.id);

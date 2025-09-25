@@ -20,6 +20,10 @@
   <img src="assets/screenshots/main-app.png" alt="EdgeBox Main Application" width="800" />
   <p><em>The EdgeBox Main Application Dashboard</em></p>
 </div>
+<div align="center">
+  <img src="assets/screenshots/computer-use.gif" alt="Computer-use Demo" width="800" />
+  <p><em>Computer Use Demo: types "google.com", presses Enter, and captures screenshot - showing computer use capabilities.</em></p>
+</div>
 
 ## 🤔 Why Choose EdgeBox?
 
