@@ -32,11 +32,11 @@ const config: ForgeConfig = {
       setupIcon: './assets/icon/icon.ico'
     }),
     new MakerZIP({}, ['darwin']),
-    new MakerRpm({
-      options: {
-        icon: './assets/icon/icon.png'
-      }
-    }),
+    // new MakerRpm({
+    //   options: {
+    //     icon: './assets/icon/icon.png'
+    //   }
+    // }),
     new MakerDeb({
       options: {
         icon: './assets/icon/icon.png'
