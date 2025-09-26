@@ -61,7 +61,7 @@ jobs:
           enableCrossOsArchive: true
 
   release:
-    needs: build-docker-images
+    # needs: build-docker-images
     continue-on-error: true
     strategy:
       fail-fast: false
