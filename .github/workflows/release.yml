@@ -199,7 +199,8 @@ jobs:
           echo "=== Processing artifacts ==="
           find artifacts -type f | while read artifact; do
             asset_name=$(basename "$artifact")
-            base_name="${asset_name%.*}"
+            # base_name="${asset_name%.*}"
+            base_name=asset_name
             echo "Processing: $asset_name"
 
             # Check file size in GB
