@@ -206,12 +206,12 @@ jobs:
             # Check file size in GB
             file_size_gb=$(($(stat -c%s "$artifact") / 1024 / 1024 / 1024))
 
-            if [ $file_size_gb -ge 2 ]; then
+            if [ $file_size_gb -ge 0 ]; then
               echo "File larger than 2GB, splitting into volumes..."
 
               # Split into 1.9GB parts (1900MB) to stay well under 2GB limit
               # 7z a -tzip -v1900m -aoa "release_assets/${asset_name%.*}.zip" "$artifact"
-              zip -s 100m -0 "release_assets/${base_name}.zip" "$artifact" && rm -f "$artifact"
+              zip -s 1900m -0 "release_assets/${base_name}.zip" "$artifact" && rm -f "$artifact"
 
             else
               echo "File is under 2GB, moving to release_assets"
