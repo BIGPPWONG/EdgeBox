@@ -27,7 +27,12 @@ const createWindow = (routePath?: string) => {
     frame: true,
     title: routePath && routePath.startsWith('/vnc/') ? `VNC - ${routePath.split('/vnc/')[1]}` : APP_DISPLAY_NAME,
     icon: process.platform === 'darwin' ? undefined : nodePath.join(__dirname, '../assets/icon.png'),
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    titleBarOverlay: process.platform === 'darwin' ? undefined : {
+      color: '#ffffff',
+      symbolColor: '#000000',
+      height: 30
+    },
     vibrancy: process.platform === 'darwin' ? 'under-window' : undefined,
     webPreferences: {
       preload: nodePath.join(__dirname, 'preload.js'),
