@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # Grant write access to repository contents
+  contents: write # Grant write access to repository contents
 
 jobs:
   build-docker-images:
@@ -84,9 +84,9 @@ jobs:
           - runner: windows-latest
             artifact_name: EdgeBox-windows-x64
             artifact_path: |
-              out/make/**/*.exe
-              out/make/**/*.msi
+              out/make/**/*.zip
             arch: amd64
+            shell: bash
           # - runner: windows-11-arm
           #   artifact_name: EdgeBox-windows-arm64
           #   artifact_path: |
@@ -153,7 +153,6 @@ jobs:
           mkdir -p sandbox_images
           mv e2b-sandbox-${{ matrix.arch }}.tar.gz sandbox_images/e2b-sandbox-latest.tar.gz
 
-
       - name: Make application
         run: pnpm run make
         env:
@@ -187,52 +186,37 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Prepare release assets with 7zip split
+      - name: Prepare release assets with zip split
         run: |
-          echo "=== Initial disk usage ==="
-          df -h .
-
           # Create release_assets directory
           mkdir -p release_assets
 
           # Clean up any existing split files first
-          rm -f release_assets/*.7z.*
+          rm -f release_assets/*.7z.* release_assets/*.zip.* release_assets/*.z*
 
           echo "=== Processing artifacts ==="
           find artifacts -type f | while read artifact; do
             asset_name=$(basename "$artifact")
+            base_name="${asset_name%.*}"
+            # base_name=asset_name
             echo "Processing: $asset_name"
-
-            # Create a clean file name for 7zip (remove spaces and special chars)
-            clean_name=$(echo "$asset_name" | sed 's/[^a-zA-Z0-9._-]/_/g')
 
             # Check file size in GB
             file_size_gb=$(($(stat -c%s "$artifact") / 1024 / 1024 / 1024))
 
-            if [ $file_size_gb -ge 2 ]; then
-              echo "File larger than 2GB, splitting into volumes..."
+            if [ $file_size_gb -ge 1 ]; then
+              echo "File larger than 1GB, splitting into volumes..."
 
-              # Split into 1.9GB parts (1900MB) to stay well under 2GB limit
-              7z a -tzip -v1900m -aoa "release_assets/${clean_name%.*}" "$artifact"
-
-              echo "Created parts for $asset_name:"
-              ls -lh "release_assets/${clean_name%.*}".*
-
-              # Delete original large file immediately after splitting to free space
-              echo "Removing original large file: $artifact"
-              rm -f "$artifact"
-
-              echo "=== Disk usage after processing $asset_name ==="
-              df -h .
+              # Split into 1.5GB parts
+              zip -s 1500m -0 "release_assets/${base_name}.zip" "$artifact" && rm -f "$artifact"
 
             else
               echo "File is under 2GB, moving to release_assets"
-              mv "$artifact" "release_assets/"
+              # Ensure no leftover old files
+              rm -f "release_assets/$asset_name"
+              mv "$artifact" "release_assets/$asset_name"
             fi
           done
-
-          echo "=== Final disk usage ==="
-          df -h .
 
       - name: Upload Release Assets
         run: |
