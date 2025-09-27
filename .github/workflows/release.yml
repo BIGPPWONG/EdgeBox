@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # Grant write access to repository contents
+  contents: write # Grant write access to repository contents
 
 jobs:
   build-docker-images:
@@ -84,8 +84,7 @@ jobs:
           - runner: windows-latest
             artifact_name: EdgeBox-windows-x64
             artifact_path: |
-              out/make/**/*.exe
-              out/make/**/*.msi
+              out/make/**/*.zip
             arch: amd64
             shell: bash
           # - runner: windows-11-arm
@@ -154,7 +153,6 @@ jobs:
           mkdir -p sandbox_images
           mv e2b-sandbox-${{ matrix.arch }}.tar.gz sandbox_images/e2b-sandbox-latest.tar.gz
 
-
       - name: Make application
         run: pnpm run make
         env:
@@ -219,7 +217,6 @@ jobs:
               mv "$artifact" "release_assets/$asset_name"
             fi
           done
-
 
       - name: Upload Release Assets
         run: |
