@@ -28,10 +28,10 @@ const config: ForgeConfig = {
   rebuildConfig: {},
   outDir: 'out', // 指定统一的输出目录
   makers: [
-    new MakerSquirrel({
-      setupIcon: './assets/icon/icon.ico'
-    }),
-    new MakerZIP({}, ['darwin']),
+    // new MakerSquirrel({
+    //   setupIcon: './assets/icon/icon.ico'
+    // }),
+    new MakerZIP({}, ['darwin', 'win32']),
     // new MakerRpm({
     //   options: {
     //     icon: './assets/icon/icon.png'
