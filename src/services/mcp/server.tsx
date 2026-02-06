@@ -790,7 +790,9 @@ function addContainerLifecycleTools(server: FastMCP) {
 
             await manager.startSandbox(config.id);
 
-            // Map the current session to this new sandbox
+            // Register session in both SandboxManager and local map
+            // This ensures getSandboxForSession() works correctly in ensureSandbox()
+            manager.registerSessionForSandbox(sessionId, config.id);
             sessionSandboxMap.set(sessionId, config.id);
 
             return JSON.stringify({

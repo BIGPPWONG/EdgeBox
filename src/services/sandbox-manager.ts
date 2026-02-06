@@ -274,6 +274,25 @@ export class SandboxManager {
     });
   }
 
+  // Register an existing sandbox to a session (used when sandbox is created externally)
+  registerSessionForSandbox(sessionId: string, sandboxId: string): void {
+    const config = this.configs.get(sandboxId);
+    if (!config) {
+      throw new Error(`Sandbox ${sandboxId} not found`);
+    }
+
+    const session: SandboxSession = {
+      sessionId,
+      sandboxId,
+      createdAt: new Date(),
+      lastActivity: new Date(),
+      clientInfo: `MCP Session ${sessionId}`,
+    };
+
+    this.sessions.set(sessionId, session);
+    this.sessionToSandbox.set(sessionId, sandboxId);
+  }
+
   // Getters
   getAllSandboxes(): SandboxConfig[] {
     return Array.from(this.configs.values());
