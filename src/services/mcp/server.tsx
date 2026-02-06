@@ -166,28 +166,25 @@ export function createServer(): FastMCP {
     return server
 }
 
-// Track session to sandbox mapping
-const sessionSandboxMap = new Map<string, string>();
-
 // Export function for manual sandbox cleanup
 export async function cleanupSandbox(sessionId: string): Promise<boolean> {
-    const sandboxId = sessionSandboxMap.get(sessionId);
-    if (sandboxId) {
-        const manager = getSandboxManager();
-        if (manager) {
-            await manager.endSession(sessionId);
-        }
-        sessionSandboxMap.delete(sessionId);
-        return true;
-    }
-    return false;
+    const manager = getSandboxManager();
+    if (!manager) return false;
+
+    const sandboxId = manager.getSessionSandboxId(sessionId);
+    if (!sandboxId) return false;
+
+    await manager.endSession(sessionId);
+    return true;
 }
 
 // Export function to get all active sessions
 export function getActiveSessions(): Array<{ sessionId: string, sandboxId: string }> {
-    return Array.from(sessionSandboxMap.entries()).map(([sessionId, sandboxId]) => ({
-        sessionId,
-        sandboxId
+    const manager = getSandboxManager();
+    if (!manager) return [];
+    return manager.getAllSessions().map(s => ({
+        sessionId: s.sessionId,
+        sandboxId: s.sandboxId,
     }));
 }
 
@@ -204,30 +201,15 @@ async function ensureSandbox(sessionId?: string | unknown) {
         throw new Error('Session ID is required to ensure sandbox');
     }
 
-    // Get or create sandbox for this session
-    let sandboxId = sessionSandboxMap.get(sessionIdStr);
-
-    if (!sandboxId) {
-        // Create new sandbox for this session
-        const manager = getSandboxManager();
-        if (!manager) {
-            throw new Error('Sandbox manager not available');
-        }
-        sandboxId = await manager.createSandboxForSession(sessionIdStr!);
-        sessionSandboxMap.set(sessionIdStr!, sandboxId);
-
-        // Note: Cleanup will be handled by timeout or manual deletion, not session close
-    }
-
-    // Get sandbox instance (with local Docker routing)
     const manager = getSandboxManager();
     if (!manager) {
         throw new Error('Sandbox manager not available');
     }
+
+    // Single source of truth: SandboxManager owns all session-to-sandbox mappings
     const container = await manager.getSandboxForSession(sessionIdStr);
     if (!container) {
-        // throw new Error(`No sandbox available for session ${sessionIdStr}`);
-        await manager.createSandboxForSession(sessionIdStr!);
+        await manager.createSandboxForSession(sessionIdStr);
     }
 
     // Ensure TCP forwarders are running (only start if not already running)
@@ -790,10 +772,8 @@ function addContainerLifecycleTools(server: FastMCP) {
 
             await manager.startSandbox(config.id);
 
-            // Register session in both SandboxManager and local map
-            // This ensures getSandboxForSession() works correctly in ensureSandbox()
+            // Register session in SandboxManager (single source of truth)
             manager.registerSessionForSandbox(sessionId, config.id);
-            sessionSandboxMap.set(sessionId, config.id);
 
             return JSON.stringify({
                 success: true,
@@ -835,13 +815,6 @@ function addContainerLifecycleTools(server: FastMCP) {
 
             await manager.stopSandbox(args.sandbox_id);
 
-            // Clean up session mappings that point to this sandbox
-            for (const [sessionId, sandboxId] of sessionSandboxMap.entries()) {
-                if (sandboxId === args.sandbox_id) {
-                    sessionSandboxMap.delete(sessionId);
-                }
-            }
-
             return JSON.stringify({
                 success: true,
                 sandboxId: args.sandbox_id,
@@ -876,10 +849,9 @@ function addContainerLifecycleTools(server: FastMCP) {
                 await manager.stopSandbox(args.sandbox_id);
             }
 
-            // Re-create and start a new sandbox with the same name
+            // Re-create and start a new sandbox for this session
             const sessionId = typeof session?.id === 'string' ? session.id : 'default_session';
             const newSandboxId = await manager.createSandboxForSession(sessionId);
-            sessionSandboxMap.set(sessionId, newSandboxId);
 
             return JSON.stringify({
                 success: true,
@@ -912,13 +884,6 @@ function addContainerLifecycleTools(server: FastMCP) {
             }
 
             await manager.deleteSandbox(args.sandbox_id);
-
-            // Clean up session mappings that point to this sandbox
-            for (const [sessionId, sandboxId] of sessionSandboxMap.entries()) {
-                if (sandboxId === args.sandbox_id) {
-                    sessionSandboxMap.delete(sessionId);
-                }
-            }
 
             return JSON.stringify({
                 success: true,

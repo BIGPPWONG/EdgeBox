@@ -274,6 +274,11 @@ export class SandboxManager {
     });
   }
 
+  // Simple lookup: get sandboxId for a session without side effects
+  getSessionSandboxId(sessionId: string): string | undefined {
+    return this.sessionToSandbox.get(sessionId);
+  }
+
   // Register an existing sandbox to a session (used when sandbox is created externally)
   registerSessionForSandbox(sessionId: string, sandboxId: string): void {
     const config = this.configs.get(sandboxId);
