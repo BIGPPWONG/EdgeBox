@@ -718,9 +718,221 @@ function addGUITools(server: FastMCP) {
     });
 }
 
+function addContainerLifecycleTools(server: FastMCP) {
+    server.addTool({
+        name: "container_list",
+        description: "List all sandbox containers and their status, including session mappings",
+        parameters: z.object({}),
+        execute: async () => {
+            const manager = getSandboxManager();
+            if (!manager) {
+                throw new Error('Sandbox manager not available');
+            }
+
+            const sandboxes = manager.getAllSandboxes();
+            const containers = manager.getAllContainers();
+            const sessions = manager.getAllSessions();
+
+            return JSON.stringify({
+                sandboxes: sandboxes.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    status: s.status,
+                    dockerImage: s.dockerImage,
+                    createdAt: s.createdAt,
+                    lastUsed: s.lastUsed,
+                    timeout: s.timeout,
+                    resources: s.resources,
+                })),
+                containers: containers.map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    status: c.status,
+                    ports: c.ports,
+                    domain: c.domain,
+                })),
+                sessions: sessions.map(s => ({
+                    sessionId: s.sessionId,
+                    sandboxId: s.sandboxId,
+                    createdAt: s.createdAt,
+                    lastActivity: s.lastActivity,
+                })),
+            });
+        },
+    });
+
+    server.addTool({
+        name: "container_create",
+        description: "Create and start a new sandbox container. Returns the sandbox ID for use with other container operations.",
+        parameters: z.object({
+            name: z.string().optional().describe("Custom name for the sandbox (default: auto-generated)"),
+            timeout: z.number().optional().describe("Timeout in minutes before auto-shutdown (default: 30)"),
+        }),
+        execute: async (args, { session }) => {
+            const manager = getSandboxManager();
+            if (!manager) {
+                throw new Error('Sandbox manager not available');
+            }
+
+            const sessionId = typeof session?.id === 'string' ? session.id : 'default_session';
+            const sandboxName = args.name || `MCP_Sandbox_${Date.now()}`;
+            const defaultImage = settingsManager?.getSettings()?.defaultDockerImage || 'e2b-sandbox:latest';
+            const timeout = args.timeout || 30;
+
+            // Get resource settings
+            const cpuCores = settingsManager?.getSettings()?.dockerCpuCores || 1;
+            const memoryGB = settingsManager?.getSettings()?.dockerMemoryGB || 1;
+
+            const config = await manager.createSandbox(sandboxName, defaultImage, timeout);
+
+            // Apply resource limits from settings
+            config.resources = { cpuCores, memoryGB };
+
+            await manager.startSandbox(config.id);
+
+            // Map the current session to this new sandbox
+            sessionSandboxMap.set(sessionId, config.id);
+
+            return JSON.stringify({
+                success: true,
+                sandboxId: config.id,
+                name: sandboxName,
+                status: 'running',
+                timeout,
+                message: `Sandbox container '${sandboxName}' created and started successfully`,
+            });
+        },
+    });
+
+    server.addTool({
+        name: "container_stop",
+        description: "Stop a running sandbox container by its ID. The container can be restarted later.",
+        parameters: z.object({
+            sandbox_id: z.string().describe("The sandbox ID to stop (from container_list or container_create)"),
+        }),
+        execute: async (args) => {
+            const manager = getSandboxManager();
+            if (!manager) {
+                throw new Error('Sandbox manager not available');
+            }
+
+            const config = manager.getSandboxConfig(args.sandbox_id);
+            if (!config) {
+                return JSON.stringify({
+                    success: false,
+                    error: `Sandbox '${args.sandbox_id}' not found`,
+                });
+            }
+
+            if (config.status === 'stopped') {
+                return JSON.stringify({
+                    success: false,
+                    error: `Sandbox '${args.sandbox_id}' is already stopped`,
+                });
+            }
+
+            await manager.stopSandbox(args.sandbox_id);
+
+            // Clean up session mappings that point to this sandbox
+            for (const [sessionId, sandboxId] of sessionSandboxMap.entries()) {
+                if (sandboxId === args.sandbox_id) {
+                    sessionSandboxMap.delete(sessionId);
+                }
+            }
+
+            return JSON.stringify({
+                success: true,
+                sandboxId: args.sandbox_id,
+                status: 'stopped',
+                message: `Sandbox container '${args.sandbox_id}' stopped successfully`,
+            });
+        },
+    });
+
+    server.addTool({
+        name: "container_restart",
+        description: "Restart a sandbox container by its ID. Stops the container if running, then starts it again.",
+        parameters: z.object({
+            sandbox_id: z.string().describe("The sandbox ID to restart (from container_list or container_create)"),
+        }),
+        execute: async (args, { session }) => {
+            const manager = getSandboxManager();
+            if (!manager) {
+                throw new Error('Sandbox manager not available');
+            }
+
+            const config = manager.getSandboxConfig(args.sandbox_id);
+            if (!config) {
+                return JSON.stringify({
+                    success: false,
+                    error: `Sandbox '${args.sandbox_id}' not found`,
+                });
+            }
+
+            // Stop if running
+            if (config.status === 'running' || config.status === 'starting') {
+                await manager.stopSandbox(args.sandbox_id);
+            }
+
+            // Re-create and start a new sandbox with the same name
+            const sessionId = typeof session?.id === 'string' ? session.id : 'default_session';
+            const newSandboxId = await manager.createSandboxForSession(sessionId);
+            sessionSandboxMap.set(sessionId, newSandboxId);
+
+            return JSON.stringify({
+                success: true,
+                oldSandboxId: args.sandbox_id,
+                newSandboxId,
+                status: 'running',
+                message: `Sandbox container restarted successfully. New sandbox ID: ${newSandboxId}`,
+            });
+        },
+    });
+
+    server.addTool({
+        name: "container_delete",
+        description: "Delete a sandbox container permanently. Stops the container if running and removes all associated data.",
+        parameters: z.object({
+            sandbox_id: z.string().describe("The sandbox ID to delete (from container_list or container_create)"),
+        }),
+        execute: async (args) => {
+            const manager = getSandboxManager();
+            if (!manager) {
+                throw new Error('Sandbox manager not available');
+            }
+
+            const config = manager.getSandboxConfig(args.sandbox_id);
+            if (!config) {
+                return JSON.stringify({
+                    success: false,
+                    error: `Sandbox '${args.sandbox_id}' not found`,
+                });
+            }
+
+            await manager.deleteSandbox(args.sandbox_id);
+
+            // Clean up session mappings that point to this sandbox
+            for (const [sessionId, sandboxId] of sessionSandboxMap.entries()) {
+                if (sandboxId === args.sandbox_id) {
+                    sessionSandboxMap.delete(sessionId);
+                }
+            }
+
+            return JSON.stringify({
+                success: true,
+                sandboxId: args.sandbox_id,
+                message: `Sandbox container '${args.sandbox_id}' deleted successfully`,
+            });
+        },
+    });
+}
+
 function addAllTools(serverInstance: FastMCP) {
     // Core tools (always available)
     addCoreTools(serverInstance);
+
+    // Container lifecycle tools (always available)
+    addContainerLifecycleTools(serverInstance);
 
     // GUI tools (conditional)
     if (isGUIToolsEnabled()) {
