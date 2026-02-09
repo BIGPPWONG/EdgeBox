@@ -21,6 +21,8 @@ export class SandboxManager {
   private sessionToSandbox: Map<string, string> = new Map();
   private timeoutHandles: Map<string, NodeJS.Timeout> = new Map();
   private settingsManager: any = null;
+  // Per-session creation locks to prevent concurrent duplicate container creation
+  private creationLocks: Map<string, Promise<string>> = new Map();
 
   constructor(dockerManager?: IDockerManager, settingsManager?: any) {
     // Use provided docker manager or create default one
@@ -61,6 +63,22 @@ export class SandboxManager {
   });
 
   async createSandboxForSession(sessionId: string): Promise<string> {
+    // If this session already has a sandbox, return it (idempotent)
+    const existingId = this.sessionToSandbox.get(sessionId);
+    if (existingId) return existingId;
+
+    // If another call is already creating a sandbox for this session, wait for it
+    const inflight = this.creationLocks.get(sessionId);
+    if (inflight) return inflight;
+
+    const promise = this.doCreateSandboxForSession(sessionId).finally(() => {
+      this.creationLocks.delete(sessionId);
+    });
+    this.creationLocks.set(sessionId, promise);
+    return promise;
+  }
+
+  private async doCreateSandboxForSession(sessionId: string): Promise<string> {
     // Get default image from settings if available
     const defaultImage = this.getDefaultImage();
 
@@ -211,6 +229,7 @@ export class SandboxManager {
 
     this.sessions.delete(sessionId);
     this.sessionToSandbox.delete(sessionId);
+    this.creationLocks.delete(sessionId);
 
     // Check if sandbox should be stopped (no active sessions)
     const activeSessions = Array.from(this.sessions.values())
@@ -271,6 +290,7 @@ export class SandboxManager {
     sessionsToDelete.forEach(sessionId => {
       this.sessions.delete(sessionId);
       this.sessionToSandbox.delete(sessionId);
+      this.creationLocks.delete(sessionId);
     });
   }
 
@@ -322,6 +342,7 @@ export class SandboxManager {
     // Clear all sessions
     this.sessions.clear();
     this.sessionToSandbox.clear();
+    this.creationLocks.clear();
 
     // Clear all timeouts
     this.timeoutHandles.forEach(handle => clearTimeout(handle));
