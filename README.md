@@ -229,23 +229,151 @@ Easily manage multiple isolated environments by specifying an `x-session-id` in 
 
 ### Programmatic Access (SDK Examples)
 
-You can connect to EdgeBox's MCP server programmatically from your own code. See the [`examples/`](./examples/) directory for quickstart guides:
+You can connect to EdgeBox's MCP server programmatically from your own code. Below are quickstart examples for Python and TypeScript.
 
-**Python** (using [FastMCP](https://gofastmcp.com/clients/client)):
+#### Python Quickstart (FastMCP)
+
+Use the [FastMCP](https://gofastmcp.com/clients/client) client to connect to EdgeBox from Python.
+
+**Install:**
+
 ```bash
-cd examples/python
-pip install -r requirements.txt
-python quickstart.py
+pip install fastmcp
 ```
 
-**TypeScript** (using [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) + [fastmcp](https://github.com/punkpeye/fastmcp)):
-```bash
-cd examples/typescript
-npm install
-npx tsx quickstart.ts
+**Example:**
+
+```python
+import asyncio
+from fastmcp import Client
+
+EDGEBOX_MCP_URL = "http://localhost:8888/mcp"
+
+async def main():
+    client = Client(EDGEBOX_MCP_URL)
+
+    async with client:
+        # List available tools
+        tools = await client.list_tools()
+        for tool in tools:
+            print(f"  - {tool.name}: {tool.description}")
+
+        # Execute Python code in the sandbox
+        result = await client.call_tool(
+            "execute_python",
+            {"code": "import sys; print(f'Hello from EdgeBox! Python {sys.version}')"},
+        )
+        print(f"Result: {result}")
+
+        # Run a shell command
+        result = await client.call_tool(
+            "shell_run",
+            {"command": "uname -a && whoami"},
+        )
+        print(f"Shell: {result}")
+
+        # File operations
+        await client.call_tool(
+            "fs_write",
+            {"path": "/tmp/hello.txt", "content": "Hello from EdgeBox!"},
+        )
+        result = await client.call_tool("fs_read", {"path": "/tmp/hello.txt"})
+        print(f"File content: {result}")
+
+        # Execute TypeScript code in the sandbox
+        result = await client.call_tool(
+            "execute_typescript",
+            {"code": "console.log(`Node.js ${process.version}`)"},
+        )
+        print(f"TypeScript: {result}")
+
+        # Desktop automation (requires GUI Tools enabled)
+        # result = await client.call_tool("desktop_screenshot", {})
+        # result = await client.call_tool("desktop_keyboard_type", {"text": "hello"})
+
+asyncio.run(main())
 ```
 
-Each language includes examples for core capabilities, multi-session usage, and desktop automation. See [`examples/README.md`](./examples/README.md) for details.
+#### TypeScript Quickstart (fastmcp)
+
+Use the [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) client (as referenced by [fastmcp](https://github.com/punkpeye/fastmcp)) to connect to EdgeBox from TypeScript.
+
+**Install:**
+
+```bash
+npm install @modelcontextprotocol/sdk fastmcp
+```
+
+**Example:**
+
+```typescript
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+const EDGEBOX_MCP_URL = "http://localhost:8888/mcp";
+
+async function main() {
+  const client = new Client(
+    { name: "edgebox-quickstart", version: "1.0.0" },
+    { capabilities: {} },
+  );
+
+  const transport = new StreamableHTTPClientTransport(
+    new URL(EDGEBOX_MCP_URL),
+  );
+  await client.connect(transport);
+
+  try {
+    // List available tools
+    const { tools } = await client.listTools();
+    for (const tool of tools) {
+      console.log(`  - ${tool.name}: ${tool.description}`);
+    }
+
+    // Execute Python code in the sandbox
+    const pythonResult = await client.callTool({
+      name: "execute_python",
+      arguments: {
+        code: "import sys; print(f'Hello from EdgeBox! Python {sys.version}')",
+      },
+    });
+    console.log("Result:", pythonResult.content);
+
+    // Run a shell command
+    const shellResult = await client.callTool({
+      name: "shell_run",
+      arguments: { command: "uname -a && whoami" },
+    });
+    console.log("Shell:", shellResult.content);
+
+    // File operations
+    await client.callTool({
+      name: "fs_write",
+      arguments: { path: "/tmp/hello.txt", content: "Hello from EdgeBox!" },
+    });
+    const readResult = await client.callTool({
+      name: "fs_read",
+      arguments: { path: "/tmp/hello.txt" },
+    });
+    console.log("File content:", readResult.content);
+
+    // Execute TypeScript code in the sandbox
+    const tsResult = await client.callTool({
+      name: "execute_typescript",
+      arguments: { code: "console.log(`Node.js ${process.version}`)" },
+    });
+    console.log("TypeScript:", tsResult.content);
+
+    // Desktop automation (requires GUI Tools enabled)
+    // const screenshot = await client.callTool({ name: "desktop_screenshot", arguments: {} });
+    // const typed = await client.callTool({ name: "desktop_keyboard_type", arguments: { text: "hello" } });
+  } finally {
+    await client.close();
+  }
+}
+
+main().catch(console.error);
+```
 
 ## 🔐 Security
 

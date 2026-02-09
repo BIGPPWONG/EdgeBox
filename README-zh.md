@@ -228,23 +228,151 @@ EdgeBox 旨在为 LLM 智能体提供无缝且强大的本地执行环境。
 
 ### 编程访问（SDK 示例）
 
-您可以通过代码编程方式连接到 EdgeBox 的 MCP 服务器。请参阅 [`examples/`](./examples/) 目录获取快速入门指南：
+您可以通过代码编程方式连接到 EdgeBox 的 MCP 服务器。以下是 Python 和 TypeScript 的快速入门示例。
 
-**Python**（使用 [FastMCP](https://gofastmcp.com/clients/client)）：
+#### Python 快速入门（FastMCP）
+
+使用 [FastMCP](https://gofastmcp.com/clients/client) 客户端从 Python 连接到 EdgeBox。
+
+**安装：**
+
 ```bash
-cd examples/python
-pip install -r requirements.txt
-python quickstart.py
+pip install fastmcp
 ```
 
-**TypeScript**（使用 [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) + [fastmcp](https://github.com/punkpeye/fastmcp)）：
-```bash
-cd examples/typescript
-npm install
-npx tsx quickstart.ts
+**示例：**
+
+```python
+import asyncio
+from fastmcp import Client
+
+EDGEBOX_MCP_URL = "http://localhost:8888/mcp"
+
+async def main():
+    client = Client(EDGEBOX_MCP_URL)
+
+    async with client:
+        # 列出可用工具
+        tools = await client.list_tools()
+        for tool in tools:
+            print(f"  - {tool.name}: {tool.description}")
+
+        # 在沙箱中执行 Python 代码
+        result = await client.call_tool(
+            "execute_python",
+            {"code": "import sys; print(f'Hello from EdgeBox! Python {sys.version}')"},
+        )
+        print(f"Result: {result}")
+
+        # 运行 Shell 命令
+        result = await client.call_tool(
+            "shell_run",
+            {"command": "uname -a && whoami"},
+        )
+        print(f"Shell: {result}")
+
+        # 文件操作
+        await client.call_tool(
+            "fs_write",
+            {"path": "/tmp/hello.txt", "content": "Hello from EdgeBox!"},
+        )
+        result = await client.call_tool("fs_read", {"path": "/tmp/hello.txt"})
+        print(f"File content: {result}")
+
+        # 在沙箱中执行 TypeScript 代码
+        result = await client.call_tool(
+            "execute_typescript",
+            {"code": "console.log(`Node.js ${process.version}`)"},
+        )
+        print(f"TypeScript: {result}")
+
+        # 桌面自动化（需要启用 GUI 工具）
+        # result = await client.call_tool("desktop_screenshot", {})
+        # result = await client.call_tool("desktop_keyboard_type", {"text": "hello"})
+
+asyncio.run(main())
 ```
 
-每种语言都包含核心功能、多会话使用和桌面自动化的示例。详见 [`examples/README.md`](./examples/README.md)。
+#### TypeScript 快速入门（fastmcp）
+
+使用 [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) 客户端（由 [fastmcp](https://github.com/punkpeye/fastmcp) 引用）从 TypeScript 连接到 EdgeBox。
+
+**安装：**
+
+```bash
+npm install @modelcontextprotocol/sdk fastmcp
+```
+
+**示例：**
+
+```typescript
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+const EDGEBOX_MCP_URL = "http://localhost:8888/mcp";
+
+async function main() {
+  const client = new Client(
+    { name: "edgebox-quickstart", version: "1.0.0" },
+    { capabilities: {} },
+  );
+
+  const transport = new StreamableHTTPClientTransport(
+    new URL(EDGEBOX_MCP_URL),
+  );
+  await client.connect(transport);
+
+  try {
+    // 列出可用工具
+    const { tools } = await client.listTools();
+    for (const tool of tools) {
+      console.log(`  - ${tool.name}: ${tool.description}`);
+    }
+
+    // 在沙箱中执行 Python 代码
+    const pythonResult = await client.callTool({
+      name: "execute_python",
+      arguments: {
+        code: "import sys; print(f'Hello from EdgeBox! Python {sys.version}')",
+      },
+    });
+    console.log("Result:", pythonResult.content);
+
+    // 运行 Shell 命令
+    const shellResult = await client.callTool({
+      name: "shell_run",
+      arguments: { command: "uname -a && whoami" },
+    });
+    console.log("Shell:", shellResult.content);
+
+    // 文件操作
+    await client.callTool({
+      name: "fs_write",
+      arguments: { path: "/tmp/hello.txt", content: "Hello from EdgeBox!" },
+    });
+    const readResult = await client.callTool({
+      name: "fs_read",
+      arguments: { path: "/tmp/hello.txt" },
+    });
+    console.log("File content:", readResult.content);
+
+    // 在沙箱中执行 TypeScript 代码
+    const tsResult = await client.callTool({
+      name: "execute_typescript",
+      arguments: { code: "console.log(`Node.js ${process.version}`)" },
+    });
+    console.log("TypeScript:", tsResult.content);
+
+    // 桌面自动化（需要启用 GUI 工具）
+    // const screenshot = await client.callTool({ name: "desktop_screenshot", arguments: {} });
+    // const typed = await client.callTool({ name: "desktop_keyboard_type", arguments: { text: "hello" } });
+  } finally {
+    await client.close();
+  }
+}
+
+main().catch(console.error);
+```
 
 ## 🔐 安全性
 
