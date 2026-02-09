@@ -374,6 +374,111 @@ async function main() {
 main().catch(console.error);
 ```
 
+#### 容器管理示例
+
+EdgeBox 提供容器生命周期工具（`container_list`、`container_create`、`container_stop`、`container_restart`、`container_delete`）来编程管理沙箱容器。
+
+**Python：**
+
+```python
+import asyncio
+from fastmcp import Client
+
+async def main():
+    client = Client("http://localhost:8888/mcp")
+
+    async with client:
+        # 创建新容器（60 分钟超时）
+        result = await client.call_tool(
+            "container_create",
+            {"session_id": "my-session", "timeout": 60},
+        )
+        print(f"Create: {result}")
+
+        # 列出所有活跃容器
+        result = await client.call_tool("container_list", {})
+        print(f"List: {result}")
+
+        # 重启容器
+        result = await client.call_tool(
+            "container_restart", {"session_id": "my-session"}
+        )
+        print(f"Restart: {result}")
+
+        # 停止容器
+        result = await client.call_tool(
+            "container_stop", {"session_id": "my-session"}
+        )
+        print(f"Stop: {result}")
+
+        # 删除容器及所有关联数据
+        result = await client.call_tool(
+            "container_delete", {"session_id": "my-session"}
+        )
+        print(f"Delete: {result}")
+
+asyncio.run(main())
+```
+
+**TypeScript：**
+
+```typescript
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+async function main() {
+  const client = new Client(
+    { name: "edgebox-container-mgmt", version: "1.0.0" },
+    { capabilities: {} },
+  );
+  const transport = new StreamableHTTPClientTransport(
+    new URL("http://localhost:8888/mcp"),
+  );
+  await client.connect(transport);
+
+  try {
+    // 创建新容器（60 分钟超时）
+    const created = await client.callTool({
+      name: "container_create",
+      arguments: { session_id: "my-session", timeout: 60 },
+    });
+    console.log("Create:", created.content);
+
+    // 列出所有活跃容器
+    const list = await client.callTool({
+      name: "container_list",
+      arguments: {},
+    });
+    console.log("List:", list.content);
+
+    // 重启容器
+    const restarted = await client.callTool({
+      name: "container_restart",
+      arguments: { session_id: "my-session" },
+    });
+    console.log("Restart:", restarted.content);
+
+    // 停止容器
+    const stopped = await client.callTool({
+      name: "container_stop",
+      arguments: { session_id: "my-session" },
+    });
+    console.log("Stop:", stopped.content);
+
+    // 删除容器及所有关联数据
+    const deleted = await client.callTool({
+      name: "container_delete",
+      arguments: { session_id: "my-session" },
+    });
+    console.log("Delete:", deleted.content);
+  } finally {
+    await client.close();
+  }
+}
+
+main().catch(console.error);
+```
+
 ## 🔐 安全性
 
   - **容器隔离**：每个沙箱会话都在单独的 Docker 容器中运行。

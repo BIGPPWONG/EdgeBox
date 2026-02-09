@@ -375,6 +375,111 @@ async function main() {
 main().catch(console.error);
 ```
 
+#### Container Management Examples
+
+EdgeBox provides container lifecycle tools (`container_list`, `container_create`, `container_stop`, `container_restart`, `container_delete`) to manage sandbox containers programmatically.
+
+**Python:**
+
+```python
+import asyncio
+from fastmcp import Client
+
+async def main():
+    client = Client("http://localhost:8888/mcp")
+
+    async with client:
+        # Create a new container (with 60-minute timeout)
+        result = await client.call_tool(
+            "container_create",
+            {"session_id": "my-session", "timeout": 60},
+        )
+        print(f"Create: {result}")
+
+        # List all active containers
+        result = await client.call_tool("container_list", {})
+        print(f"List: {result}")
+
+        # Restart the container
+        result = await client.call_tool(
+            "container_restart", {"session_id": "my-session"}
+        )
+        print(f"Restart: {result}")
+
+        # Stop the container
+        result = await client.call_tool(
+            "container_stop", {"session_id": "my-session"}
+        )
+        print(f"Stop: {result}")
+
+        # Delete the container and all associated data
+        result = await client.call_tool(
+            "container_delete", {"session_id": "my-session"}
+        )
+        print(f"Delete: {result}")
+
+asyncio.run(main())
+```
+
+**TypeScript:**
+
+```typescript
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+async function main() {
+  const client = new Client(
+    { name: "edgebox-container-mgmt", version: "1.0.0" },
+    { capabilities: {} },
+  );
+  const transport = new StreamableHTTPClientTransport(
+    new URL("http://localhost:8888/mcp"),
+  );
+  await client.connect(transport);
+
+  try {
+    // Create a new container (with 60-minute timeout)
+    const created = await client.callTool({
+      name: "container_create",
+      arguments: { session_id: "my-session", timeout: 60 },
+    });
+    console.log("Create:", created.content);
+
+    // List all active containers
+    const list = await client.callTool({
+      name: "container_list",
+      arguments: {},
+    });
+    console.log("List:", list.content);
+
+    // Restart the container
+    const restarted = await client.callTool({
+      name: "container_restart",
+      arguments: { session_id: "my-session" },
+    });
+    console.log("Restart:", restarted.content);
+
+    // Stop the container
+    const stopped = await client.callTool({
+      name: "container_stop",
+      arguments: { session_id: "my-session" },
+    });
+    console.log("Stop:", stopped.content);
+
+    // Delete the container and all associated data
+    const deleted = await client.callTool({
+      name: "container_delete",
+      arguments: { session_id: "my-session" },
+    });
+    console.log("Delete:", deleted.content);
+  } finally {
+    await client.close();
+  }
+}
+
+main().catch(console.error);
+```
+
 ## 🔐 Security
 
   - **Container Isolation**: Every sandbox session runs in a separate Docker container.
