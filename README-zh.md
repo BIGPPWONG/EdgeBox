@@ -377,6 +377,7 @@ main().catch(console.error);
 #### 容器管理示例
 
 EdgeBox 提供容器生命周期工具（`container_list`、`container_create`、`container_stop`、`container_restart`、`container_delete`）来编程管理沙箱容器。
+`container_stop` 会结束该 `session_id` 与容器的映射关系，因此一般应将 **`container_stop` 或 `container_delete` 二选一** 作为最终清理步骤（不要对同一个 `session_id` 先 stop 再 delete）。
 
 **Python：**
 
@@ -405,15 +406,20 @@ async def main():
         )
         print(f"Restart: {result}")
 
-        # 停止容器
+        # 清理方式 A：停止容器
         result = await client.call_tool(
             "container_stop", {"session_id": "my-session"}
         )
         print(f"Stop: {result}")
 
-        # 删除容器及所有关联数据
+        # 清理方式 B（替代 stop）：直接删除容器及所有关联数据
+        # 为了演示可重复运行，这里使用不同的 session_id
+        await client.call_tool(
+            "container_create",
+            {"session_id": "my-session-delete", "timeout": 60},
+        )
         result = await client.call_tool(
-            "container_delete", {"session_id": "my-session"}
+            "container_delete", {"session_id": "my-session-delete"}
         )
         print(f"Delete: {result}")
 
@@ -458,17 +464,22 @@ async function main() {
     });
     console.log("Restart:", restarted.content);
 
-    // 停止容器
+    // 清理方式 A：停止容器
     const stopped = await client.callTool({
       name: "container_stop",
       arguments: { session_id: "my-session" },
     });
     console.log("Stop:", stopped.content);
 
-    // 删除容器及所有关联数据
+    // 清理方式 B（替代 stop）：直接删除容器及所有关联数据
+    // 为了演示可重复运行，这里使用不同的 session_id
+    await client.callTool({
+      name: "container_create",
+      arguments: { session_id: "my-session-delete", timeout: 60 },
+    });
     const deleted = await client.callTool({
       name: "container_delete",
-      arguments: { session_id: "my-session" },
+      arguments: { session_id: "my-session-delete" },
     });
     console.log("Delete:", deleted.content);
   } finally {
@@ -516,11 +527,9 @@ async def run_in_session(session_id: str):
         print(f"[{session_id}] hostname => {result}")
 
 async def main():
-    # 这两个 session 运行在完全独立的容器中
-    await asyncio.gather(
-        run_in_session("session-alice"),
-        run_in_session("session-bob"),
-    )
+    # 顺序运行，输出更直观（并发场景见下方校验脚本）
+    await run_in_session("session-alice")
+    await run_in_session("session-bob")
     # session-alice 的 /tmp/id.txt 内容为 "I am session-alice"
     # session-bob 的 /tmp/id.txt 内容为 "I am session-bob"
     # 它们互不干扰。
@@ -583,6 +592,98 @@ async function main() {
   // session-alice 的 /tmp/id.txt 内容为 "I am session-alice"
   // session-bob 的 /tmp/id.txt 内容为 "I am session-bob"
   // 它们互不干扰。
+}
+
+main().catch(console.error);
+```
+
+#### 并发隔离校验（<= 4）
+
+如果你希望在轻量并发下校验会话隔离，建议将并发控制在较低水平（例如 `<= 4`），并验证每个 session 都能读回自己写入的值。
+
+**Python（4 个 session，独立路径）：**
+
+```python
+import asyncio
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
+
+URL = "http://localhost:8888/mcp"
+SESSIONS = ["s1", "s2", "s3", "s4"]
+ROUNDS = 20
+
+async def run_once(session_id: str, round_no: int) -> bool:
+    transport = StreamableHttpTransport(
+        url=URL,
+        headers={"x-session-id": session_id},
+    )
+    client = Client(transport)
+
+    path = f"/tmp/id-{session_id}.txt"
+    expected = f"{session_id}-r{round_no}"
+
+    async with client:
+        await client.call_tool("fs_write", {"path": path, "content": expected})
+        read = await client.call_tool("fs_read", {"path": path})
+        actual = read.content[0].text
+        return actual == expected
+
+async def main():
+    bad = 0
+    for i in range(1, ROUNDS + 1):
+        results = await asyncio.gather(*[run_once(s, i) for s in SESSIONS])
+        bad += sum(0 if ok else 1 for ok in results)
+    print(f"BAD={bad}")
+
+asyncio.run(main())
+```
+
+**TypeScript（4 个 session，独立路径）：**
+
+```typescript
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+const URL = "http://localhost:8888/mcp";
+const SESSIONS = ["s1", "s2", "s3", "s4"];
+const ROUNDS = 20;
+
+async function runOnce(sessionId: string, roundNo: number): Promise<boolean> {
+  const client = new Client(
+    { name: "edgebox-isolation-check", version: "1.0.0" },
+    { capabilities: {} },
+  );
+  const transport = new StreamableHTTPClientTransport(new URL(URL), {
+    requestInit: { headers: { "x-session-id": sessionId } },
+  });
+  await client.connect(transport);
+
+  const path = `/tmp/id-${sessionId}.txt`;
+  const expected = `${sessionId}-r${roundNo}`;
+
+  try {
+    await client.callTool({
+      name: "fs_write",
+      arguments: { path, content: expected },
+    });
+    const read = await client.callTool({
+      name: "fs_read",
+      arguments: { path },
+    });
+    const actual = (read.content?.[0] as any)?.text ?? "";
+    return actual === expected;
+  } finally {
+    await client.close();
+  }
+}
+
+async function main() {
+  let bad = 0;
+  for (let i = 1; i <= ROUNDS; i++) {
+    const results = await Promise.all(SESSIONS.map((s) => runOnce(s, i)));
+    bad += results.filter((ok) => !ok).length;
+  }
+  console.log(`BAD=${bad}`);
 }
 
 main().catch(console.error);
