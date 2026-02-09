@@ -479,6 +479,115 @@ async function main() {
 main().catch(console.error);
 ```
 
+#### 会话隔离示例
+
+在 EdgeBox 中，**每个会话（session）对应一个独立的 Docker 容器**，拥有各自隔离的文件系统和运行环境。不传 `x-session-id` 时，所有请求共用同一个 `"default_session"` 容器。通过传入不同的 `x-session-id` header，可以并行运行完全隔离的工作负载。
+
+**Python：**
+
+```python
+import asyncio
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
+
+async def run_in_session(session_id: str):
+    """每个 session 拥有独立的隔离容器。"""
+    transport = StreamableHttpTransport(
+        url="http://localhost:8888/mcp",
+        headers={"x-session-id": session_id},
+    )
+    client = Client(transport)
+
+    async with client:
+        # 写入文件 - 仅在此 session 的容器内可见
+        await client.call_tool(
+            "fs_write",
+            {"path": "/tmp/id.txt", "content": f"I am {session_id}"},
+        )
+
+        # 读取文件
+        result = await client.call_tool("fs_read", {"path": "/tmp/id.txt"})
+        print(f"[{session_id}] /tmp/id.txt => {result}")
+
+        # 在此 session 的容器内运行命令
+        result = await client.call_tool(
+            "shell_run", {"command": "hostname"}
+        )
+        print(f"[{session_id}] hostname => {result}")
+
+async def main():
+    # 这两个 session 运行在完全独立的容器中
+    await asyncio.gather(
+        run_in_session("session-alice"),
+        run_in_session("session-bob"),
+    )
+    # session-alice 的 /tmp/id.txt 内容为 "I am session-alice"
+    # session-bob 的 /tmp/id.txt 内容为 "I am session-bob"
+    # 它们互不干扰。
+
+asyncio.run(main())
+```
+
+**TypeScript：**
+
+```typescript
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+async function runInSession(sessionId: string) {
+  const client = new Client(
+    { name: "edgebox-session-demo", version: "1.0.0" },
+    { capabilities: {} },
+  );
+  const transport = new StreamableHTTPClientTransport(
+    new URL("http://localhost:8888/mcp"),
+    {
+      requestInit: {
+        headers: { "x-session-id": sessionId },
+      },
+    },
+  );
+  await client.connect(transport);
+
+  try {
+    // 写入文件 - 仅在此 session 的容器内可见
+    await client.callTool({
+      name: "fs_write",
+      arguments: { path: "/tmp/id.txt", content: `I am ${sessionId}` },
+    });
+
+    // 读取文件
+    const read = await client.callTool({
+      name: "fs_read",
+      arguments: { path: "/tmp/id.txt" },
+    });
+    console.log(`[${sessionId}] /tmp/id.txt =>`, read.content);
+
+    // 在此 session 的容器内运行命令
+    const host = await client.callTool({
+      name: "shell_run",
+      arguments: { command: "hostname" },
+    });
+    console.log(`[${sessionId}] hostname =>`, host.content);
+  } finally {
+    await client.close();
+  }
+}
+
+async function main() {
+  // 这两个 session 运行在完全独立的容器中
+  await Promise.all([
+    runInSession("session-alice"),
+    runInSession("session-bob"),
+  ]);
+  // session-alice 的 /tmp/id.txt 内容为 "I am session-alice"
+  // session-bob 的 /tmp/id.txt 内容为 "I am session-bob"
+  // 它们互不干扰。
+}
+
+main().catch(console.error);
+```
+
 ## 🔐 安全性
 
   - **容器隔离**：每个沙箱会话都在单独的 Docker 容器中运行。

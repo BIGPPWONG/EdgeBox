@@ -480,6 +480,115 @@ async function main() {
 main().catch(console.error);
 ```
 
+#### Session Isolation Examples
+
+In EdgeBox, **each session maps to its own isolated Docker container** with a separate filesystem and runtime. When no `x-session-id` header is provided, all requests share a single `"default_session"` container. By passing different `x-session-id` headers, you can run fully isolated workloads in parallel.
+
+**Python:**
+
+```python
+import asyncio
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
+
+async def run_in_session(session_id: str):
+    """Each session gets its own isolated container."""
+    transport = StreamableHttpTransport(
+        url="http://localhost:8888/mcp",
+        headers={"x-session-id": session_id},
+    )
+    client = Client(transport)
+
+    async with client:
+        # Write a file - only visible within this session's container
+        await client.call_tool(
+            "fs_write",
+            {"path": "/tmp/id.txt", "content": f"I am {session_id}"},
+        )
+
+        # Read it back
+        result = await client.call_tool("fs_read", {"path": "/tmp/id.txt"})
+        print(f"[{session_id}] /tmp/id.txt => {result}")
+
+        # Run a command in this session's container
+        result = await client.call_tool(
+            "shell_run", {"command": "hostname"}
+        )
+        print(f"[{session_id}] hostname => {result}")
+
+async def main():
+    # These two sessions run in completely separate containers
+    await asyncio.gather(
+        run_in_session("session-alice"),
+        run_in_session("session-bob"),
+    )
+    # session-alice's /tmp/id.txt contains "I am session-alice"
+    # session-bob's  /tmp/id.txt contains "I am session-bob"
+    # They never interfere with each other.
+
+asyncio.run(main())
+```
+
+**TypeScript:**
+
+```typescript
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+async function runInSession(sessionId: string) {
+  const client = new Client(
+    { name: "edgebox-session-demo", version: "1.0.0" },
+    { capabilities: {} },
+  );
+  const transport = new StreamableHTTPClientTransport(
+    new URL("http://localhost:8888/mcp"),
+    {
+      requestInit: {
+        headers: { "x-session-id": sessionId },
+      },
+    },
+  );
+  await client.connect(transport);
+
+  try {
+    // Write a file - only visible within this session's container
+    await client.callTool({
+      name: "fs_write",
+      arguments: { path: "/tmp/id.txt", content: `I am ${sessionId}` },
+    });
+
+    // Read it back
+    const read = await client.callTool({
+      name: "fs_read",
+      arguments: { path: "/tmp/id.txt" },
+    });
+    console.log(`[${sessionId}] /tmp/id.txt =>`, read.content);
+
+    // Run a command in this session's container
+    const host = await client.callTool({
+      name: "shell_run",
+      arguments: { command: "hostname" },
+    });
+    console.log(`[${sessionId}] hostname =>`, host.content);
+  } finally {
+    await client.close();
+  }
+}
+
+async function main() {
+  // These two sessions run in completely separate containers
+  await Promise.all([
+    runInSession("session-alice"),
+    runInSession("session-bob"),
+  ]);
+  // session-alice's /tmp/id.txt contains "I am session-alice"
+  // session-bob's  /tmp/id.txt contains "I am session-bob"
+  // They never interfere with each other.
+}
+
+main().catch(console.error);
+```
+
 ## 🔐 Security
 
   - **Container Isolation**: Every sandbox session runs in a separate Docker container.
