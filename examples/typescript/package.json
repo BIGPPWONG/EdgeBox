@@ -1,0 +1,19 @@
+{
+  "name": "edgebox-typescript-examples",
+  "version": "1.0.0",
+  "description": "EdgeBox TypeScript quickstart examples using MCP client",
+  "type": "module",
+  "scripts": {
+    "quickstart": "npx tsx quickstart.ts",
+    "multi-session": "npx tsx multi_session.ts",
+    "desktop": "npx tsx desktop_automation.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "fastmcp": "^3.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

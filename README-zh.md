@@ -56,6 +56,7 @@
     - [MCP 客户端配置](#mcp-客户端配置)
     - [指导您的 LLM 智能体](#指导您的-llm-智能体)
     - [多会话并发沙箱](#多会话并发沙箱)
+    - [编程访问（SDK 示例）](#编程访问sdk-示例)
   - [🔐 安全性](#-安全性)
   - [📄 许可证](#-许可证)
   - [🙏 致谢](#-致谢)
@@ -224,6 +225,26 @@ EdgeBox 旨在为 LLM 智能体提供无缝且强大的本地执行环境。
   }
 }
 ```
+
+### 编程访问（SDK 示例）
+
+您可以通过代码编程方式连接到 EdgeBox 的 MCP 服务器。请参阅 [`examples/`](./examples/) 目录获取快速入门指南：
+
+**Python**（使用 [FastMCP](https://gofastmcp.com/clients/client)）：
+```bash
+cd examples/python
+pip install -r requirements.txt
+python quickstart.py
+```
+
+**TypeScript**（使用 [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) + [fastmcp](https://github.com/punkpeye/fastmcp)）：
+```bash
+cd examples/typescript
+npm install
+npx tsx quickstart.ts
+```
+
+每种语言都包含核心功能、多会话使用和桌面自动化的示例。详见 [`examples/README.md`](./examples/README.md)。
 
 ## 🔐 安全性
 

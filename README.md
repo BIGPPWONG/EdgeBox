@@ -57,6 +57,7 @@
     - [MCP Client Configuration](#mcp-client-configuration)
     - [Instructing Your LLM Agent](#instructing-your-llm-agent)
     - [Multi-Session Concurrent Sandboxes](#multi-session-concurrent-sandboxes)
+    - [Programmatic Access (SDK Examples)](#programmatic-access-sdk-examples)
   - [🔐 Security](#-security)
   - [📄 License](#-license)
   - [🙏 Acknowledgments](#-acknowledgments)
@@ -225,6 +226,26 @@ Easily manage multiple isolated environments by specifying an `x-session-id` in 
   }
 }
 ```
+
+### Programmatic Access (SDK Examples)
+
+You can connect to EdgeBox's MCP server programmatically from your own code. See the [`examples/`](./examples/) directory for quickstart guides:
+
+**Python** (using [FastMCP](https://gofastmcp.com/clients/client)):
+```bash
+cd examples/python
+pip install -r requirements.txt
+python quickstart.py
+```
+
+**TypeScript** (using [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) + [fastmcp](https://github.com/punkpeye/fastmcp)):
+```bash
+cd examples/typescript
+npm install
+npx tsx quickstart.ts
+```
+
+Each language includes examples for core capabilities, multi-session usage, and desktop automation. See [`examples/README.md`](./examples/README.md) for details.
 
 ## 🔐 Security
 
