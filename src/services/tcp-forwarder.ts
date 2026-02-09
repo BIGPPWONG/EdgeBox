@@ -1,10 +1,11 @@
+import http from 'http';
 import net from 'net';
 import { DEFAULT_CONTAINER_PORTS } from '../constants/ports';
 import type { SandboxManager } from './sandbox-manager';
 
 export interface PortForwarder {
   port: number;
-  server: net.Server;
+  server: http.Server;
   isRunning: boolean;
 }
 
@@ -29,8 +30,13 @@ export class TcpForwarder {
       return;
     }
 
-    const server = net.createServer((clientSocket) => {
-      this.handleConnection(port, clientSocket);
+    const server = http.createServer((req, res) => {
+      this.handleHttpRequest(port, req, res);
+    });
+
+    // Handle WebSocket / HTTP upgrade (e.g. noVNC on port 6080)
+    server.on('upgrade', (req, socket, head) => {
+      this.handleUpgrade(port, req, socket as net.Socket, head);
     });
 
     const forwarder: PortForwarder = {
@@ -41,7 +47,7 @@ export class TcpForwarder {
 
     await new Promise<void>((resolve, reject) => {
       server.listen(port, '0.0.0.0', () => {
-        console.log(`TCP Forwarder listening on port ${port} (all interfaces)`);
+        console.log(`HTTP Forwarder listening on port ${port} (all interfaces)`);
         forwarder.isRunning = true;
         resolve();
       });
@@ -55,169 +61,119 @@ export class TcpForwarder {
     this.forwarders.set(port, forwarder);
   }
 
-  private async handleConnection(listenPort: number, clientSocket: net.Socket): Promise<void> {
-    console.log(`New connection on port ${listenPort}`);
-
-    try {
-      // Extract session ID from Host header
-      const sessionId = await this.extractSessionFromHost(clientSocket);
-
-      if (!sessionId) {
-        console.error('No session ID found in Host header, closing connection');
-        clientSocket.destroy();
-        return;
-      }
-
-      console.log(`Connection for session: ${sessionId}`);
-
-      // Get container info for this session
-      const container = await this.sandboxManager.getSandboxForSession(sessionId);
-      if (!container) {
-        console.error(`No container found for session ${sessionId}`);
-        clientSocket.destroy();
-        return;
-      }
-
-      // Get target port from container port mapping
-      const targetPort = container.ports[listenPort];
-      if (!targetPort) {
-        console.error(`No port mapping found for container port ${listenPort}`);
-        clientSocket.destroy();
-        return;
-      }
-
-      // Forward to target container
-      await this.forwardToTarget(clientSocket, 'localhost', targetPort, sessionId);
-
-    } catch (error) {
-      console.error(`Error handling connection on port ${listenPort}:`, error);
-      clientSocket.destroy();
-    }
-  }
-
-  private async extractSessionFromHost(clientSocket: net.Socket): Promise<string | null> {
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        resolve(null);
-      }, 5000);
-
-      clientSocket.once('data', (data) => {
-        clearTimeout(timeout);
-
-        const dataStr = data.toString();
-        console.log('Received initial data:', dataStr);
-
-        // Look for x-session-id header in HTTP request
-        const headerSessionMatch = dataStr.match(/x-session-id:\s*([^\r\n]+)/i);
-        if (headerSessionMatch) {
-          const sessionId = headerSessionMatch[1].trim();
-          console.log(`Found session ID in header: ${sessionId}`);
-
-          // Re-emit the original data without modification
-          setTimeout(() => {
-            clientSocket.emit('data', data);
-          }, 0);
-
-          resolve(sessionId);
-          return;
-        }
-
-        // Look for x-session-id in JSON body (for POST requests)
-        try {
-          // Split headers and body
-          const httpParts = dataStr.split('\r\n\r\n');
-          if (httpParts.length >= 2) {
-            const bodyStr = httpParts[1];
-            if (bodyStr.trim()) {
-              const jsonBody = JSON.parse(bodyStr);
-
-              // Check if x-session-id is in env_vars
-              if (jsonBody.env_vars && jsonBody.env_vars['x-session-id']) {
-                const sessionId = jsonBody.env_vars['x-session-id'];
-                console.log(`Found session ID in body env_vars: ${sessionId}`);
-
-                // Re-emit the original data without modification
-                setTimeout(() => {
-                  clientSocket.emit('data', data);
-                }, 0);
-
-                resolve(sessionId);
-                return;
-              }
-
-              // Check if x-session-id is directly in the body
-              if (jsonBody['x-session-id']) {
-                const sessionId = jsonBody['x-session-id'];
-                console.log(`Found session ID in body: ${sessionId}`);
-
-                // Re-emit the original data without modification
-                setTimeout(() => {
-                  clientSocket.emit('data', data);
-                }, 0);
-
-                resolve(sessionId);
-                return;
-              }
-            }
-          }
-        } catch (error) {
-          // If JSON parsing fails, continue with normal flow
-          console.log('Failed to parse JSON body, continuing...');
-        }
-
-        // If no session ID found, re-emit data and return null
-        setTimeout(() => {
-          clientSocket.emit('data', data);
-        }, 0);
-        resolve(null);
-      });
-
-      clientSocket.once('close', () => {
-        clearTimeout(timeout);
-        resolve(null);
-      });
-    });
-  }
-
-  private async forwardToTarget(
-    clientSocket: net.Socket,
-    targetHost: string,
-    targetPort: number,
+  /**
+   * Resolve the target container port for a given session + listen port.
+   * Returns null if no container or no port mapping exists.
+   */
+  private resolveTarget(
+    listenPort: number,
     sessionId: string
-  ): Promise<void> {
-    const targetSocket = net.createConnection({ port: targetPort, host: targetHost }, () => {
-      console.log(`Connected to target ${targetHost}:${targetPort} for session ${sessionId}`);
+  ): { targetPort: number; sessionId: string } | null {
+    const container = this.sandboxManager.getContainerForSession(sessionId);
+    if (!container) {
+      console.error(`No container found for session ${sessionId}`);
+      return null;
+    }
+
+    const targetPort = container.ports[listenPort];
+    if (!targetPort) {
+      console.error(`No port mapping found for container port ${listenPort}`);
+      return null;
+    }
+
+    return { targetPort, sessionId };
+  }
+
+  /**
+   * Per-request HTTP reverse proxy.
+   * Each request is independently routed by its x-session-id header,
+   * so HTTP keep-alive / connection pooling never causes cross-session routing.
+   */
+  private handleHttpRequest(
+    listenPort: number,
+    clientReq: http.IncomingMessage,
+    clientRes: http.ServerResponse
+  ): void {
+    const sessionId =
+      (clientReq.headers['x-session-id'] as string) || 'default_session';
+
+    const target = this.resolveTarget(listenPort, sessionId);
+    if (!target) {
+      clientRes.writeHead(502, { 'Content-Type': 'text/plain' });
+      clientRes.end(`No container available for session "${sessionId}"`);
+      return;
+    }
+
+    const proxyReq = http.request(
+      {
+        hostname: 'localhost',
+        port: target.targetPort,
+        path: clientReq.url,
+        method: clientReq.method,
+        headers: clientReq.headers,
+      },
+      (proxyRes) => {
+        clientRes.writeHead(proxyRes.statusCode!, proxyRes.headers);
+        proxyRes.pipe(clientRes);
+      }
+    );
+
+    proxyReq.on('error', (err) => {
+      console.error(`Proxy error for session ${sessionId}:`, err.message);
+      if (!clientRes.headersSent) {
+        clientRes.writeHead(502, { 'Content-Type': 'text/plain' });
+      }
+      clientRes.end('Proxy error');
     });
 
-    // Setup bidirectional data forwarding
-    clientSocket.pipe(targetSocket);
-    targetSocket.pipe(clientSocket);
+    clientReq.pipe(proxyReq);
+  }
 
-    // Handle errors and cleanup
+  /**
+   * Per-request WebSocket / HTTP upgrade proxy.
+   * Used for noVNC (port 6080) and any other upgrade-based protocols.
+   */
+  private handleUpgrade(
+    listenPort: number,
+    clientReq: http.IncomingMessage,
+    clientSocket: net.Socket,
+    head: Buffer
+  ): void {
+    const sessionId =
+      (clientReq.headers['x-session-id'] as string) || 'default_session';
+
+    const target = this.resolveTarget(listenPort, sessionId);
+    if (!target) {
+      clientSocket.destroy();
+      return;
+    }
+
+    const targetSocket = net.createConnection(
+      { host: 'localhost', port: target.targetPort },
+      () => {
+        // Reconstruct and forward the original HTTP upgrade request
+        const reqLine = `${clientReq.method} ${clientReq.url} HTTP/${clientReq.httpVersion}\r\n`;
+        const headers = Object.entries(clientReq.headers)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+          .join('\r\n');
+        targetSocket.write(reqLine + headers + '\r\n\r\n');
+        if (head.length > 0) targetSocket.write(head);
+
+        // Bidirectional pipe
+        clientSocket.pipe(targetSocket);
+        targetSocket.pipe(clientSocket);
+      }
+    );
+
     const cleanup = () => {
       if (!clientSocket.destroyed) clientSocket.destroy();
       if (!targetSocket.destroyed) targetSocket.destroy();
     };
 
-    clientSocket.on('error', (err) => {
-      console.error(`Client socket error for session ${sessionId}:`, err);
-      cleanup();
-    });
-
-    targetSocket.on('error', (err) => {
-      console.error(`Target socket error for session ${sessionId}:`, err);
-      cleanup();
-    });
-
-    clientSocket.on('close', () => {
-      console.log(`Client connection closed for session ${sessionId}`);
-      cleanup();
-    });
-
-    targetSocket.on('close', () => {
-      console.log(`Target connection closed for session ${sessionId}`);
-      cleanup();
-    });
+    clientSocket.on('error', cleanup);
+    targetSocket.on('error', cleanup);
+    clientSocket.on('close', cleanup);
+    targetSocket.on('close', cleanup);
   }
 
   public async stopForwarder(port: number): Promise<void> {
@@ -226,7 +182,7 @@ export class TcpForwarder {
 
     return new Promise((resolve) => {
       forwarder.server.close(() => {
-        console.log(`TCP Forwarder stopped on port ${port}`);
+        console.log(`HTTP Forwarder stopped on port ${port}`);
         this.forwarders.delete(port);
         resolve();
       });
