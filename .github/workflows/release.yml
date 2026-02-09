@@ -66,13 +66,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS (Intel & Apple Silicon)
-          - runner: macos-13
-            artifact_name: EdgeBox-macos-x64
-            artifact_path: |
-              out/make/**/*.dmg
-              out/make/**/*.zip
-            arch: amd64
+          # macOS (Apple Silicon)
           - runner: macos-14
             artifact_name: EdgeBox-macos-arm64
             artifact_path: |
