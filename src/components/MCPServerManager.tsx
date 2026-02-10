@@ -5,6 +5,7 @@ import { Badge } from './ui/badge';
 import { Switch } from './ui/switch';
 import { MCPServerStatus } from '../types/docker';
 import { Wrench, Clock, BarChart3, Link, RefreshCw, Radio } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface LocalMCPServerStatus extends MCPServerStatus {
   totalRequests: number;
@@ -236,23 +237,50 @@ export const MCPServerConfigCard: React.FC = () => {
   };
 
   const handleToggleGUITools = async (enabled: boolean) => {
-    try {
-      const result = await window.settingsAPI.updateSettings({ enableGUITools: enabled });
-      if (result.success) {
-        setEnableGUITools(enabled);
+    const previousState = enableGUITools;
+    const loadingToastId = toast.loading(`${enabled ? 'Enabling' : 'Disabling'} GUI tools...`);
 
-        // Restart MCP server after GUI tools setting change
-        try {
-          const restartResult = await window.mcpAPI.restartServer();
-          if (restartResult.success && restartResult.status) {
-            console.log('MCP server restarted successfully after GUI tools change');
-          }
-        } catch (restartError) {
-          console.error('Failed to restart MCP server after GUI tools change:', restartError);
+    try {
+      // Update settings first
+      const result = await window.settingsAPI.updateSettings({ enableGUITools: enabled });
+      if (!result.success) {
+        throw new Error('Failed to update settings');
+      }
+
+      // Restart MCP server to apply the change
+      try {
+        const restartResult = await window.mcpAPI.restartServer();
+        if (restartResult.success && restartResult.status) {
+          // Only update UI state after successful restart
+          setEnableGUITools(enabled);
+          toast.dismiss(loadingToastId);
+          toast.success(`GUI tools ${enabled ? 'enabled' : 'disabled'} successfully`);
+          console.log('MCP server restarted successfully after GUI tools change');
+        } else {
+          throw new Error('Server restart failed');
         }
+      } catch (restartError) {
+        console.error('Failed to restart MCP server after GUI tools change:', restartError);
+
+        // Rollback settings to previous state
+        await window.settingsAPI.updateSettings({ enableGUITools: previousState });
+
+        toast.dismiss(loadingToastId);
+        toast.error(
+          `Failed to ${enabled ? 'enable' : 'disable'} GUI tools. Server restart failed. Settings reverted.`,
+          { duration: 5000 }
+        );
+
+        // Keep UI state unchanged since we rolled back the settings
+        throw restartError;
       }
     } catch (error) {
       console.error('Failed to update GUI tools setting:', error);
+      toast.dismiss(loadingToastId);
+      toast.error(
+        `Failed to ${enabled ? 'enable' : 'disable'} GUI tools: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { duration: 5000 }
+      );
     }
   };
 
