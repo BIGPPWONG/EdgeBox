@@ -262,16 +262,30 @@ export const MCPServerConfigCard: React.FC = () => {
       } catch (restartError) {
         console.error('Failed to restart MCP server after GUI tools change:', restartError);
 
-        // Rollback settings to previous state
-        await window.settingsAPI.updateSettings({ enableGUITools: previousState });
+        // Attempt to rollback settings to previous state
+        const rollbackResult = await window.settingsAPI.updateSettings({ enableGUITools: previousState });
 
         toast.dismiss(loadingToastId);
-        toast.error(
-          `Failed to ${enabled ? 'enable' : 'disable'} GUI tools. Server restart failed. Settings reverted.`,
-          { duration: 5000 }
-        );
 
-        // Keep UI state unchanged since we rolled back the settings
+        if (rollbackResult.success) {
+          // Rollback successful - UI stays at previous state, settings reverted
+          toast.error(
+            `Failed to ${enabled ? 'enable' : 'disable'} GUI tools. Server restart failed. Settings reverted.`,
+            { duration: 5000 }
+          );
+        } else {
+          // Rollback failed - critical state inconsistency!
+          // Backend settings are in the new state, but server didn't restart
+          // Update UI to match backend settings and warn user
+          setEnableGUITools(enabled);
+          toast.error(
+            `Critical: Server restart failed AND settings rollback failed. Settings are ${enabled ? 'enabled' : 'disabled'} but not applied. Please restart the app.`,
+            { duration: 10000 }
+          );
+          console.error('Critical: Failed to rollback settings after server restart failure');
+        }
+
+        // Keep UI state unchanged if rollback succeeded, or update it if rollback failed
         throw restartError;
       }
     } catch (error) {
