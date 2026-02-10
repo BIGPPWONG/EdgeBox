@@ -285,8 +285,8 @@ export const MCPServerConfigCard: React.FC = () => {
           console.error('Critical: Failed to rollback settings after server restart failure');
         }
 
-        // Keep UI state unchanged if rollback succeeded, or update it if rollback failed
-        throw restartError;
+        // Error already handled with appropriate toast notification - don't propagate to outer catch
+        return;
       }
     } catch (error) {
       console.error('Failed to update GUI tools setting:', error);
